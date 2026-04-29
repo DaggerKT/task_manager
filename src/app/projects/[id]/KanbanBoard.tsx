@@ -1,0 +1,1029 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
+import {
+  Calendar,
+  MoreHorizontal,
+  Plus,
+  MessageSquare,
+  ChevronLeft,
+  ChevronRight,
+  X,
+} from "lucide-react";
+import "react-quill-new/dist/quill.snow.css";
+
+const ReactQuill = dynamic(() => import("react-quill-new"), { ssr: false });
+
+const COLOR_OPTIONS = [
+  { id: "blue", label: "สีฟ้า", color: "#3b82f6" },
+  { id: "purple", label: "สีม่วง", color: "#8b5cf6" },
+  { id: "pink", label: "สีชมพู", color: "#ec4899" },
+  { id: "orange", label: "สีส้ม", color: "#f97316" },
+  { id: "yellow", label: "สีเหลือง", color: "#eab308" },
+  { id: "teal", label: "สีเขียวอมฟ้า", color: "#14b8a6" },
+];
+
+import { createStep, updateStep } from "@/actions/step";
+import {
+  createTask,
+  updateTaskStatus,
+  updateTaskDescription,
+} from "@/actions/task";
+import { addComment } from "@/actions/comment";
+import { createInvitation } from "@/actions/invitation";
+
+export default function KanbanBoard({
+  initialProject,
+  initialSteps,
+  initialTasks,
+  currentUserId,
+}: any) {
+  const params = useParams();
+  const router = useRouter();
+  const projectId = params.id as string;
+
+  const members: any[] =
+    initialProject?.team?.members?.map((m: any) => ({
+      id: m.userId || m.id,
+      name: m.user?.name || "Unknown User",
+      role: m.role || "Member",
+      avatar: m.user?.name?.[0] || "U",
+      avatarUrl: m.user?.avatar || "",
+    })) || [];
+
+  const currentUser =
+    members.find((member) => member.id === currentUserId) ||
+    ({
+      id: currentUserId,
+      name: "Current User",
+      avatar: "U",
+      avatarUrl: "",
+    } as any);
+
+  // Initialize with DB actual items directly
+  const [columns, setColumns] = useState<any[]>(initialSteps);
+  const [tasks, setTasks] = useState<any[]>(initialTasks);
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+
+  // Modal State (Column)
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [newColTitle, setNewColTitle] = useState("");
+  const [newColColor, setNewColColor] = useState("#3b82f6");
+  const [insertAfterId, setInsertAfterId] = useState("todo");
+
+  // Modal State (Task)
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newTaskType, setNewTaskType] = useState("General");
+  const [newTaskAssignee, setNewTaskAssignee] = useState("K");
+  const [newTaskDescription, setNewTaskDescription] = useState("");
+
+  // Modal State (Invite Member)
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [inviteIdentifier, setInviteIdentifier] = useState("");
+  const [inviteError, setInviteError] = useState("");
+  const [inviteSuccess, setInviteSuccess] = useState("");
+
+  // Modal State (View Task)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [viewTask, setViewTask] = useState<any | null>(null);
+  const [newComment, setNewComment] = useState("");
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [editDescriptionContent, setEditDescriptionContent] = useState("");
+
+  useEffect(() => {
+    setColumns(initialSteps);
+    setTasks(initialTasks);
+  }, [initialSteps, initialTasks]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      router.refresh();
+    }, 12000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        router.refresh();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [router]);
+
+  const handleSaveDescription = async () => {
+    if (!viewTask) return;
+    const updatedTask = { ...viewTask, description: editDescriptionContent };
+
+    // Optimistic UI updates
+    setTasks(tasks.map((t: any) => (t.id === viewTask.id ? updatedTask : t)));
+    setViewTask(updatedTask);
+    setIsEditingDescription(false);
+
+    // Save to DB
+    await updateTaskDescription(viewTask.id, editDescriptionContent, projectId);
+  };
+
+  const handleAddComment = async () => {
+    if (!newComment.trim() || !viewTask) return;
+    if (!currentUserId) {
+      alert("กรุณาเข้าสู่ระบบใหม่อีกครั้ง");
+      return;
+    }
+
+    const res = await addComment(
+      viewTask.id,
+      newComment,
+      currentUserId,
+      projectId,
+    );
+
+    if (res.success && res.comment) {
+      const newCommentObj = {
+        id: res.comment.id,
+        text: res.comment.content,
+        authorName: res.comment.user?.name || "Unknown User",
+        author: res.comment.user?.name?.[0] || "U",
+        avatarUrl: res.comment.user?.avatar || "",
+        timestamp: new Date(res.comment.createdAt).toLocaleTimeString("th-TH", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      };
+
+      const updatedTask = {
+        ...viewTask,
+        comments: (viewTask.comments || 0) + 1,
+        commentList: [...(viewTask.commentList || []), newCommentObj],
+      };
+
+      setTasks(tasks.map((t: any) => (t.id === viewTask.id ? updatedTask : t)));
+      setViewTask(updatedTask);
+    }
+    setNewComment("");
+  };
+
+  const handleAddTaskSubmit = async () => {
+    if (!newTaskTitle.trim()) return;
+    if (!currentUserId) {
+      alert("กรุณาเข้าสู่ระบบใหม่อีกครั้ง");
+      return;
+    }
+
+    // Use the first column as default step
+    const defaultStepId = columns.length > 0 ? columns[0].id : "todo";
+
+    // Server Action Create Task
+    const res = await createTask({
+      title: newTaskTitle,
+      type: newTaskType,
+      content: newTaskDescription,
+      projectId,
+      stepId: defaultStepId,
+      assigneeId: undefined, // Assignee needs proper DB ID
+      creatorId: currentUserId,
+      order: tasks.length,
+    });
+
+    if (res.success && res.task) {
+      const newTask = {
+        ...res.task,
+        status: res.task.stepId, // Map stepId to status for UI
+        assignee: newTaskAssignee, // UI mock assignee avatar character for now
+        description: res.task.content,
+        comments: 0,
+        commentList: [],
+      };
+      setTasks([...tasks, newTask]);
+    }
+
+    setIsTaskModalOpen(false);
+    setNewTaskTitle("");
+    setNewTaskType("General");
+    setNewTaskAssignee("K");
+    setNewTaskDescription("");
+  };
+
+  const handleAddColumnSubmit = async () => {
+    if (!newColTitle.trim()) return;
+
+    setIsAddModalOpen(false);
+
+    const insertIndex = columns.findIndex((c) => c.id === insertAfterId);
+
+    // กำหนดตำแหน่งที่จะแทรก: อยู่หลังช่องที่เลือก หรือถ้าไม่เจอให้แทรกก่อนช่องสุดท้ายเสมอ
+    // (มั่นใจได้ว่า Done/เสร็จสิ้น จะถูกผลักลงไปอยู่ด้านหลังสุด)
+    const targetIndex =
+      insertIndex !== -1 ? insertIndex + 1 : Math.max(0, columns.length - 1);
+
+    // Call server action เพื่อสร้างคอลัมน์ใหม่
+    const res = await createStep(
+      projectId,
+      newColTitle,
+      newColColor,
+      targetIndex,
+    );
+
+    if (res.success && res.step) {
+      const newColumns = [...columns];
+      newColumns.splice(targetIndex, 0, res.step);
+
+      // อัปเดต State ให้ UI แสดงผลทันที
+      setColumns(newColumns);
+
+      // *** อัปเดตลำดับ order ของคอลัมน์ที่ถูกผลักไปด้านหลังทั้งหมดใน Database (รวมถึงอันสุดท้าย) ***
+      const updatePromises = [];
+      for (let i = targetIndex + 1; i < newColumns.length; i++) {
+        const col = newColumns[i];
+        updatePromises.push(updateStep(col.id, col.title, col.color, i));
+      }
+
+      if (updatePromises.length > 0) {
+        await Promise.all(updatePromises);
+      }
+    }
+
+    setNewColTitle("");
+    setNewColColor("#3b82f6");
+  };
+
+  const handleMoveColumn = async (
+    index: number,
+    direction: "left" | "right",
+  ) => {
+    // ป้องกันการสลับ todo หรือ done
+    if (index === 0 || index === columns.length - 1) return;
+
+    const newIndex = direction === "left" ? index - 1 : index + 1;
+
+    // ห้ามให้คอลัมน์อื่นไปสลับที่กับ todo (0) หรือ done (last item)
+    if (newIndex === 0 || newIndex === columns.length - 1) return;
+
+    const newColumns = [...columns];
+    const temp = newColumns[index];
+    newColumns[index] = newColumns[newIndex];
+    newColumns[newIndex] = temp;
+
+    // Update local state first for fast response
+
+    setColumns(newColumns);
+    // Update backend tracking their new index as order
+    const col1 = newColumns[index];
+    const col2 = newColumns[newIndex];
+
+    console.log(
+      "Updating column order on server:",
+      col1.id,
+      col1.title,
+      index,
+      "and",
+      col2.id,
+      col2.title,
+      newIndex,
+    );
+
+    await Promise.all([
+      updateStep(col1.id, col1.title, col1.color, index),
+      updateStep(col2.id, col2.title, col2.color, newIndex),
+    ]);
+  };
+
+  const handleDeleteColumn = (id: string) => {
+    // ป้องกันการลบถ้ามีงานค้างอยู่ (ในของจริงควรมีการย้ายงานหรือยืนยันก่อน)
+    const hasTasks = tasks.some((t) => t.status === id);
+    if (hasTasks) {
+      alert("ไม่สามารถลบคอลัมน์นี้ได้เพราะยังมีงานอยู่");
+      return;
+    }
+    setColumns(columns.filter((col) => col.id !== id));
+  };
+
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    setDraggedTaskId(id);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDrop = async (e: React.DragEvent, status: string) => {
+    e.preventDefault();
+    if (!draggedTaskId) return;
+
+    // Optimistic update
+    setTasks(
+      tasks.map((task) =>
+        task.id === draggedTaskId ? { ...task, status } : task,
+      ),
+    );
+
+    // Server update
+    await updateTaskStatus(draggedTaskId, status, projectId);
+
+    setDraggedTaskId(null);
+  };
+
+  const handleInviteMember = async () => {
+    const input = inviteIdentifier.trim();
+    if (!input) return;
+
+    setInviteError("");
+    setInviteSuccess("");
+
+    const res = await createInvitation(initialProject.teamId, projectId, input);
+    if (!res.success) {
+      setInviteError(res.error || "ไม่สามารถส่งคำเชิญได้");
+      return;
+    }
+
+    setInviteSuccess("ส่งคำเชิญเรียบร้อยแล้ว");
+    setInviteIdentifier("");
+  };
+
+  return (
+    <div className="h-full flex flex-col space-y-6">
+      {/* Project Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-3 mb-1">
+            <h1 className="text-2xl font-bold text-gray-900">
+              {initialProject.name}
+            </h1>
+            <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700">
+              {initialProject.status}
+            </span>
+          </div>
+          <p className="text-sm text-gray-500">{initialProject.description}</p>
+        </div>
+
+        {/* Members & Actions (Less prominent than tabs) */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center">
+            <div className="flex -space-x-2 mr-3">
+              {members.map((member) => (
+                <div
+                  key={member.id}
+                  title={member.name}
+                  className="w-8 h-8 rounded-full bg-linear-to-tr from-blue-100 to-blue-200 border-2 border-white flex items-center justify-center text-blue-700 text-xs font-bold shadow-sm cursor-help hover:-translate-y-1 transition-transform"
+                >
+                  {member.avatar}
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => setIsInviteModalOpen(true)}
+              title="เพิ่มสมาชิก"
+              className="w-8 h-8 rounded-full border border-dashed border-gray-300 flex items-center justify-center text-gray-400 hover:text-blue-600 hover:border-blue-400 transition-colors bg-white shadow-sm"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="h-8 w-px bg-gray-200 hidden sm:block"></div>
+
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            เพิ่มขั้นตอน
+          </button>
+
+          <button
+            onClick={() => setIsTaskModalOpen(true)}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            สร้างงาน
+          </button>
+        </div>
+      </div>
+
+      {/* Kanban Board */}
+      <div className="flex-1 flex gap-6 overflow-x-auto pb-4 items-start">
+        {columns.map((col, index) => {
+          const columnTasks = tasks.filter((t) => t.status === col.id);
+          return (
+            <div
+              key={col.id}
+              className="shrink-0 w-80 rounded-xl p-4 flex flex-col max-h-full border border-gray-100"
+              style={{
+                backgroundColor: `${col.color}1A`,
+              }} /* 1A is 10% opacity in hex */
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, col.id)}
+            >
+              <div className="flex justify-between items-center mb-4 px-1">
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-2.5 h-2.5 rounded-full shadow-[0_0_2px_rgba(0,0,0,0.2)]"
+                    style={{ backgroundColor: col.color }}
+                  ></div>
+                  <h3 className="font-semibold text-gray-700 text-sm">
+                    {col.title}
+                  </h3>
+                  <span className="text-xs font-medium bg-white text-gray-500 px-2 py-0.5 rounded-full shadow-sm">
+                    {columnTasks.length}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  {/* ปุ่มขยับคอลัมน์ (แสดงเฉพาะเมื่อไม่ใช่ todo และไม่ใช่อันก่อน done ที่จะขยับไป right) */}
+                  {index > 1 && (
+                    <button
+                      className="text-gray-400 hover:text-blue-600 transition-colors p-1"
+                      onClick={() => handleMoveColumn(index, "left")}
+                      title="เลื่อนซ้าย"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                  )}
+                  {index > 0 && index < columns.length - 2 && (
+                    <button
+                      className="text-gray-400 hover:text-blue-600 transition-colors p-1"
+                      onClick={() => handleMoveColumn(index, "right")}
+                      title="เลื่อนขวา"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  )}
+                  {index !== 0 && index !== columns.length - 1 && (
+                    <button
+                      className="text-gray-400 hover:text-red-500 transition-colors p-1 ml-1"
+                      onClick={() => handleDeleteColumn(col.id)}
+                      title="ลบคอลัมน์"
+                    >
+                      <MoreHorizontal className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto space-y-3 min-h-37.5">
+                {columnTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, task.id)}
+                    onClick={() => setViewTask(task)}
+                    className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 cursor-grab active:cursor-grabbing hover:shadow-md hover:border-blue-300 transition-all group"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-gray-100 text-gray-600">
+                        {task.type}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm("คุณแน่ใจหรือไม่ที่จะลบงานนี้?")) {
+                            setTasks(tasks.filter((t) => t.id !== task.id));
+                          }
+                        }}
+                        className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="ลบงานนี้"
+                      >
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <p className="text-sm font-medium text-gray-800 mb-4">
+                      {task.title}
+                    </p>
+
+                    <div className="flex justify-between items-end mt-auto">
+                      <div className="flex items-center gap-2 text-gray-400">
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span className="text-xs">{task.comments || 0}</span>
+                      </div>
+                      <div
+                        title={`Assignee: ${task.assignee}`}
+                        className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-bold text-blue-700 border border-white shadow-sm ring-1 ring-gray-100"
+                      >
+                        {task.assignee}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Empty State visual drop target */}
+                {columnTasks.length === 0 && (
+                  <div className="h-full min-h-25 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center text-gray-400 text-sm">
+                    ลากงานมาวางที่นี่
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Invite Member Modal Popup */}
+      {isInviteModalOpen && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden relative">
+            <div className="flex justify-between items-center p-5 border-b border-gray-100">
+              <h2 className="text-lg font-bold text-gray-900">เชิญสมาชิก</h2>
+              <button
+                onClick={() => {
+                  setIsInviteModalOpen(false);
+                  setInviteIdentifier("");
+                  setInviteError("");
+                  setInviteSuccess("");
+                }}
+                className="text-gray-400 hover:text-gray-600 p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-gray-500">
+                ใส่ username, รหัสพนักงาน หรือ email ของสมาชิกที่ต้องการเชิญ
+              </p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  ข้อมูลผู้รับเชิญ
+                </label>
+                <input
+                  type="text"
+                  value={inviteIdentifier}
+                  onChange={(e) => setInviteIdentifier(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && inviteIdentifier.trim()) {
+                      void handleInviteMember();
+                    }
+                  }}
+                  placeholder="เช่น user_name หรือ 100001193 หรือ user@example.com"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  autoFocus
+                />
+                {inviteError && (
+                  <p className="mt-2 text-xs text-red-600">{inviteError}</p>
+                )}
+                {inviteSuccess && (
+                  <p className="mt-2 text-xs text-green-600">{inviteSuccess}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="p-5 border-t border-gray-100 flex justify-end gap-3 bg-gray-50">
+              <button
+                onClick={() => {
+                  setIsInviteModalOpen(false);
+                  setInviteIdentifier("");
+                  setInviteError("");
+                  setInviteSuccess("");
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={() => void handleInviteMember()}
+                disabled={!inviteIdentifier.trim()}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+              >
+                เชิญ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Column Modal Popup */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden relative">
+            <div className="flex justify-between items-center p-5 border-b border-gray-100">
+              <h2 className="text-lg font-bold text-gray-900">
+                เพิ่มขั้นตอนใหม่
+              </h2>
+              <button
+                onClick={() => setIsAddModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  ชื่อขั้นตอน
+                </label>
+                <input
+                  type="text"
+                  value={newColTitle}
+                  onChange={(e) => setNewColTitle(e.target.value)}
+                  placeholder="เช่น ตรวจสอบโค้ด, รออนุมัติ..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  เลือกสัญลักษณ์สี หรือกำหนดเอง
+                </label>
+                <div className="flex gap-3 items-center flex-wrap">
+                  {COLOR_OPTIONS.map((color) => (
+                    <button
+                      key={color.id}
+                      onClick={() => setNewColColor(color.color)}
+                      className={`w-8 h-8 rounded-full ring-offset-2 transition-all ${newColColor === color.color ? "ring-2 ring-gray-400 scale-110 shadow-md" : "hover:scale-105 shadow-sm"}`}
+                      style={{ backgroundColor: color.color }}
+                      title={color.label}
+                    />
+                  ))}
+                  <div className="w-px h-8 bg-gray-200 mx-1 border-none"></div>
+                  <div className="flex items-center gap-2">
+                    <div className="relative w-8 h-8 rounded-full overflow-hidden border border-gray-300 shadow-sm cursor-pointer hover:scale-105 transition-all focus-within:ring-2 focus-within:ring-gray-400 focus-within:ring-offset-2">
+                      <input
+                        type="color"
+                        value={newColColor}
+                        onChange={(e) => setNewColColor(e.target.value)}
+                        className="absolute -top-3 -left-3 w-14 h-14 cursor-pointer border-0 p-0"
+                        title="เลือกสีเอง"
+                      />
+                    </div>
+                    <span className="text-xs text-gray-500 font-medium">
+                      สีปัจจุบัน:{" "}
+                      <span className="uppercase">{newColColor}</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  ตำแหน่ง (ต้องการให้อยู่หลังช่องไหน)
+                </label>
+                <select
+                  value={insertAfterId}
+                  onChange={(e) => setInsertAfterId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  {columns.slice(0, -1).map((col) => (
+                    <option key={col.id} value={col.id}>
+                      {col.title}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-2">
+                  * จะถูกแทรกไว้ตรงกลาง ไม่สามารถไปอยู่หลัง
+                  &quot;เสร็จสิ้น&quot; ได้
+                </p>
+              </div>
+            </div>
+
+            <div className="p-5 border-t border-gray-100 flex justify-end gap-3 bg-gray-50">
+              <button
+                onClick={() => setIsAddModalOpen(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleAddColumnSubmit}
+                disabled={!newColTitle.trim()}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+              >
+                ตกลง
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Task Modal Popup */}
+      {isTaskModalOpen && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden relative flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center p-5 border-b border-gray-100 shrink-0">
+              <h2 className="text-lg font-bold text-gray-900">สร้างงานใหม่</h2>
+              <button
+                onClick={() => setIsTaskModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5 overflow-y-auto flex-1">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  ชื่องาน (Task Title) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newTaskTitle}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                  placeholder="เช่น ออกแบบหน้า Login..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    ประเภทงาน (Type)
+                  </label>
+                  <select
+                    value={newTaskType}
+                    onChange={(e) => setNewTaskType(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  >
+                    <option value="Frontend">Frontend</option>
+                    <option value="Backend">Backend</option>
+                    <option value="Design">Design</option>
+                    <option value="QA">QA</option>
+                    <option value="General">ทั่วไป (General)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    ผู้รับผิดชอบ (Assignee)
+                  </label>
+                  <select
+                    value={newTaskAssignee}
+                    onChange={(e) => setNewTaskAssignee(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  >
+                    {members.map((member) => (
+                      <option key={member.id} value={member.avatar}>
+                        {member.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex-1 flex flex-col min-h-[250px]">
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  รายละเอียด (Description - รองรับรูปภาพ)
+                </label>
+                <div className="flex-1 border border-gray-300 rounded-lg overflow-hidden [&_.quill]:h-[200px] [&_.ql-container]:border-none [&_.ql-toolbar]:border-none [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-gray-300">
+                  <ReactQuill
+                    theme="snow"
+                    value={newTaskDescription}
+                    onChange={setNewTaskDescription}
+                    placeholder="พิมพ์รายละเอียดงาน วางภาพ หรือจัดรูปแบบได้ตามต้องการ..."
+                    modules={{
+                      toolbar: [
+                        [{ header: [1, 2, 3, false] }],
+                        ["bold", "italic", "underline", "strike"],
+                        [{ list: "ordered" }, { list: "bullet" }],
+                        ["link", "image"],
+                        ["clean"],
+                      ],
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="p-5 border-t border-gray-100 flex justify-end gap-3 bg-gray-50 shrink-0">
+              <button
+                onClick={() => setIsTaskModalOpen(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleAddTaskSubmit}
+                disabled={!newTaskTitle.trim()}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+              >
+                สร้างงาน
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Task Modal Popup */}
+      {viewTask && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden relative flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center p-5 border-b border-gray-100 shrink-0">
+              <div className="flex items-center gap-3">
+                <span className="px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded">
+                  {viewTask.type}
+                </span>
+                <span className="text-gray-500 text-sm">ID: {viewTask.id}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    if (confirm("คุณแน่ใจหรือไม่ที่จะลบงานนี้?")) {
+                      setTasks(tasks.filter((t) => t.id !== viewTask.id));
+                      setViewTask(null);
+                      setIsEditingDescription(false);
+                    }
+                  }}
+                  className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium"
+                >
+                  ลบงาน
+                </button>
+                <button
+                  onClick={() => {
+                    setViewTask(null);
+                    setIsEditingDescription(false);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 p-1"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-5 overflow-y-auto flex-1">
+              <h2 className="text-2xl font-bold text-gray-900">
+                {viewTask.title}
+              </h2>
+
+              <div className="grid grid-cols-2 gap-4 border border-gray-100 bg-gray-50 rounded-xl p-4">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">สถานะปัจจุบัน</p>
+                  <div className="font-medium text-gray-900">
+                    {columns.find((c) => c.id === viewTask.status)?.title ||
+                      viewTask.status}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">ผู้รับผิดชอบ</p>
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-bold text-blue-700">
+                      {viewTask.assignee}
+                    </div>
+                    <span className="text-sm font-medium text-gray-900">
+                      {members.find((m) => m.avatar === viewTask.assignee)
+                        ?.name || viewTask.assignee}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-sm font-semibold text-gray-800">
+                    รายละเอียด (Description)
+                  </h3>
+                  {!isEditingDescription && (
+                    <button
+                      onClick={() => {
+                        setIsEditingDescription(true);
+                        setEditDescriptionContent(viewTask.description || "");
+                      }}
+                      className="text-xs text-blue-600 hover:text-blue-800 hover:underline font-medium px-2 py-1 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
+                    >
+                      แก้ไขรายละเอียด
+                    </button>
+                  )}
+                </div>
+
+                {isEditingDescription ? (
+                  <div className="border border-gray-300 rounded-lg overflow-hidden [&_.quill]:h-[150px] [&_.ql-container]:border-none [&_.ql-toolbar]:border-none [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-gray-300 flex flex-col mb-4">
+                    <ReactQuill
+                      theme="snow"
+                      value={editDescriptionContent}
+                      onChange={setEditDescriptionContent}
+                      placeholder="พิมพ์รายละเอียดงาน วางภาพ หรือจัดรูปแบบได้ตามต้องการ..."
+                      modules={{
+                        toolbar: [
+                          [{ header: [1, 2, 3, false] }],
+                          ["bold", "italic", "underline", "strike"],
+                          [{ list: "ordered" }, { list: "bullet" }],
+                          ["link", "image"],
+                          ["clean"],
+                        ],
+                      }}
+                    />
+                    <div className="flex justify-end gap-2 p-3 bg-gray-50 border-t border-gray-200 mt-10">
+                      <button
+                        onClick={() => setIsEditingDescription(false)}
+                        className="px-4 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
+                      >
+                        ยกเลิก
+                      </button>
+                      <button
+                        onClick={handleSaveDescription}
+                        className="px-4 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                      >
+                        บันทึก
+                      </button>
+                    </div>
+                  </div>
+                ) : viewTask.description &&
+                  viewTask.description !== "<p><br></p>" ? (
+                  <div
+                    className="text-gray-700 bg-white border border-gray-100 rounded-lg p-4 [&>p]:mb-3 [&>h1]:text-2xl [&>h1]:font-bold [&>h2]:text-xl [&>h2]:font-bold [&>h3]:text-lg [&>h3]:font-bold [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:list-decimal [&>ol]:pl-5 [&>ol]:mb-3 [&>ul]:mb-3 [&_img]:max-w-full [&_img]:rounded-md [&_a]:text-blue-600 [&_a]:underline"
+                    dangerouslySetInnerHTML={{ __html: viewTask.description }}
+                  />
+                ) : (
+                  <div className="text-gray-400 italic text-sm bg-gray-50 border border-dashed border-gray-200 p-4 rounded-lg text-center">
+                    ไม่มีรายละเอียดงาน...
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-4 border-t border-gray-100">
+                <h3 className="text-sm font-semibold text-gray-800 mb-3">
+                  ความคิดเห็น ({viewTask.comments || 0})
+                </h3>
+                <div className="space-y-3 mb-4">
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  {(viewTask.commentList || []).map((comment: any) => (
+                    <div key={comment.id} className="flex gap-3">
+                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-xs font-bold text-blue-700 shrink-0 border border-white shadow-sm ring-1 ring-gray-100">
+                        {comment.avatarUrl ? (
+                          <img
+                            src={comment.avatarUrl}
+                            alt={comment.authorName || "Commenter"}
+                            className="w-full h-full object-cover rounded-full"
+                          />
+                        ) : (
+                          comment.author
+                        )}
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-3 w-full border border-gray-100">
+                        <div className="flex justify-between items-start mb-1">
+                          <span className="text-xs font-bold text-gray-800">
+                            {comment.authorName ||
+                              members.find((m) => m.avatar === comment.author)
+                                ?.name ||
+                              comment.author}
+                          </span>
+                          <span className="text-[10px] text-gray-400">
+                            {comment.timestamp}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600">{comment.text}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {(!viewTask.commentList ||
+                    viewTask.commentList.length === 0) && (
+                    <div className="text-center text-sm text-gray-400 py-4 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                      ยังไม่มีความคิดเห็น... เริ่มพูดคุยเลย
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3 items-start mt-4">
+                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-xs font-bold text-blue-700 shrink-0 border border-white shadow-sm ring-1 ring-gray-100">
+                    {currentUser.avatarUrl ? (
+                      <img
+                        src={currentUser.avatarUrl}
+                        alt={currentUser.name}
+                        className="w-full h-full object-cover rounded-full"
+                      />
+                    ) : (
+                      currentUser.avatar
+                    )}
+                  </div>
+                  <div className="flex-1 flex gap-2">
+                    <input
+                      type="text"
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleAddComment()}
+                      placeholder="พิมพ์ความคิดเห็น หรืออัปเดตความคืบหน้า..."
+                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                      onClick={handleAddComment}
+                      disabled={!newComment.trim()}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      ส่ง
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-5 border-t border-gray-100 flex justify-end gap-3 bg-gray-50 shrink-0">
+              <button
+                onClick={() => {
+                  setViewTask(null);
+                  setIsEditingDescription(false);
+                }}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors rounded-lg"
+              >
+                ปิดหน้าต่าง
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

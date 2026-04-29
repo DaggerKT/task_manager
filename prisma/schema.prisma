@@ -28,6 +28,8 @@ model User {
   tasksAssigned Task[]       @relation("TaskAssignee")
   taskComments  Comment[]
   createdTasks  Task[]       @relation("TaskCreator")
+  invitationsSent Invitation[] @relation("InvitationInviter")
+  invitationsReceived Invitation[] @relation("InvitationInvitee")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -46,6 +48,7 @@ model Team {
 
   members  TeamMember[]
   projects Project[]
+  invitations Invitation[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -78,15 +81,57 @@ enum Role {
   VIEWER
 }
 
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+model Invitation {
+  id String @id @default(uuid())
+
+  teamId String @map("team_id")
+  projectId String? @map("project_id")
+  inviterUserId String @map("inviter_user_id")
+  inviteeUserId String? @map("invitee_user_id")
+
+  inviteeUsername String? @map("invitee_username")
+  inviteeEmpNo String? @map("invitee_emp_no")
+  inviteeEmail String? @map("invitee_email")
+
+  status InvitationStatus @default(PENDING)
+  respondedAt DateTime? @map("responded_at")
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  inviter User @relation("InvitationInviter", fields: [inviterUserId], references: [id], onDelete: Cascade)
+  invitee User? @relation("InvitationInvitee", fields: [inviteeUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([teamId])
+  @@index([projectId])
+  @@index([inviterUserId])
+  @@index([inviteeUserId])
+  @@index([inviteeUsername])
+  @@index([inviteeEmpNo])
+  @@index([inviteeEmail])
+  @@map("invitations")
+}
+
 model Project {
-  id          String  @id @default(uuid())
+  id          String    @id @default(uuid())
   name        String
   description String?
+  status      String    @default("ACTIVE")
+  dueDate     DateTime? @map("due_date")
   teamId      String
 
   team  Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
   steps Step[] // คอลัมน์ต่างๆ ในโปรเจค (TODO, Dev, Test, Done, etc.)
   tasks Task[]
+  invitations Invitation[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -101,20 +146,22 @@ model Project {
 // Step คือ คอลัมน์สถานะ (เช่น TODO, Dev, Test, Done) ให้จัดการได้ตามแต่ละ Project 
 model Step {
   id        String @id @default(uuid())
-  name      String
-  order     Int
+  title     String // ชื่อคอลัมน์ (รอทำ, กำลังทำ)
+  color     String @default("#9ca3af") // สีหลัก (Hex code)
+  order     Int // ตำแหน่งเรียงซ้ายขวา
   projectId String @map("project_id")
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   tasks   Task[]
 
-  @@unique([projectId, name])
+  @@unique([projectId, title])
   @@map("steps")
 }
 
 model Task {
   id      String  @id @default(uuid())
   title   String
+  type    String  @default("General") // ประเภทงาน (Frontend, Backend, etc.)
   content String? @db.Text // เนื้อหา HTML จาก Rich Text Editor
   order   Float // ใช้สำหรับ Drag & Drop จัดลำดับในคอลัมน์
 
