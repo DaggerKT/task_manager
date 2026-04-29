@@ -94,8 +94,14 @@ export default function KanbanBoard({
   const [editDescriptionContent, setEditDescriptionContent] = useState("");
 
   useEffect(() => {
-    setColumns(initialSteps);
-    setTasks(initialTasks);
+    const syncTimer = window.setTimeout(() => {
+      setColumns(initialSteps);
+      setTasks(initialTasks);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(syncTimer);
+    };
   }, [initialSteps, initialTasks]);
 
   useEffect(() => {

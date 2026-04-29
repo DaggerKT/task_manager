@@ -3,6 +3,7 @@
 import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { latin1Safe } from '@/utils/encoding';
+import { publishRealtimeEvent } from '@/lib/realtime';
 
 export async function createTask(data: {
   title: string;
@@ -26,6 +27,10 @@ export async function createTask(data: {
       data: safeData
     });
     revalidatePath(`/projects/${data.projectId}`);
+    await publishRealtimeEvent({
+      type: 'task.created',
+      payload: { projectId: data.projectId, taskId: newTask.id },
+    });
     return { success: true, task: newTask };
   } catch (error) {
     console.error("Error creating task:", error);
@@ -40,6 +45,10 @@ export async function updateTaskStatus(taskId: string, stepId: string, projectId
       data: { stepId }
     });
     revalidatePath(`/projects/${projectId}`);
+    await publishRealtimeEvent({
+      type: 'task.status.updated',
+      payload: { projectId, taskId, stepId },
+    });
     return { success: true };
   } catch (error) {
     console.error("Error updating task:", error);
@@ -54,6 +63,10 @@ export async function updateTaskDescription(taskId: string, content: string, pro
       data: { content: latin1Safe(content, '') }
     });
     revalidatePath(`/projects/${projectId}`);
+    await publishRealtimeEvent({
+      type: 'task.description.updated',
+      payload: { projectId, taskId },
+    });
     return { success: true };
   } catch (error) {
     console.error("Error updating task description:", error);

@@ -4,16 +4,7 @@ import { useEffect, useState } from "react";
 import { Check, X, Bell } from "lucide-react";
 import { getMyInvitations, respondToInvitation } from "@/actions/invitation";
 
-type InvitationItem = {
-  id: string;
-  createdAt: string;
-  team: { name: string };
-  project: { name: string } | null;
-  inviter: { name: string | null; username: string };
-  inviteeEmail: string | null;
-  inviteeEmpNo: string | null;
-  inviteeUsername: string | null;
-};
+type InvitationItem = Awaited<ReturnType<typeof getMyInvitations>>[number];
 
 export default function NotificationsPage() {
   const [invitations, setInvitations] = useState<InvitationItem[]>([]);
@@ -25,7 +16,7 @@ export default function NotificationsPage() {
     setError("");
     try {
       const data = await getMyInvitations();
-      setInvitations(data as InvitationItem[]);
+      setInvitations(data);
     } catch (err) {
       console.error(err);
       setError("ไม่สามารถโหลดการแจ้งเตือนได้");

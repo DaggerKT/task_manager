@@ -4,6 +4,8 @@ import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { latin1Safe } from "@/utils/encoding";
+import { publishRealtimeEvent } from "@/lib/realtime";
+import type { Prisma } from "@/generated/prisma";
 
 type IdentifierKind = "email" | "empNo" | "username";
 
@@ -79,13 +81,14 @@ export async function createInvitation(
       ? latin1Safe(parsed.username).toLowerCase()
       : undefined;
 
+    const userMatchOr: Prisma.UserWhereInput[] = [];
+    if (safeEmail) userMatchOr.push({ email: safeEmail });
+    if (safeEmpNo) userMatchOr.push({ empNo: safeEmpNo });
+    if (safeUsername) userMatchOr.push({ username: safeUsername });
+
     const targetUser = await prisma.user.findFirst({
       where: {
-        OR: [
-          safeEmail ? { email: safeEmail } : undefined,
-          safeEmpNo ? { empNo: safeEmpNo } : undefined,
-          safeUsername ? { username: safeUsername } : undefined,
-        ].filter(Boolean) as Array<Record<string, string>>,
+        OR: userMatchOr,
       },
     });
 
@@ -98,16 +101,17 @@ export async function createInvitation(
       }
     }
 
+    const duplicateOr: Prisma.InvitationWhereInput[] = [];
+    if (targetUser) duplicateOr.push({ inviteeUserId: targetUser.id });
+    if (safeEmail) duplicateOr.push({ inviteeEmail: safeEmail });
+    if (safeEmpNo) duplicateOr.push({ inviteeEmpNo: safeEmpNo });
+    if (safeUsername) duplicateOr.push({ inviteeUsername: safeUsername });
+
     const duplicate = await prisma.invitation.findFirst({
       where: {
         teamId,
         status: "PENDING",
-        OR: [
-          targetUser ? { inviteeUserId: targetUser.id } : undefined,
-          safeEmail ? { inviteeEmail: safeEmail } : undefined,
-          safeEmpNo ? { inviteeEmpNo: safeEmpNo } : undefined,
-          safeUsername ? { inviteeUsername: safeUsername } : undefined,
-        ].filter(Boolean) as Array<Record<string, string>>,
+        OR: duplicateOr,
       },
     });
     if (duplicate) {
@@ -128,6 +132,10 @@ export async function createInvitation(
 
     revalidatePath("/notifications");
     revalidatePath(`/projects/${projectId}`);
+    await publishRealtimeEvent({
+      type: "invitation.created",
+      payload: { projectId, teamId, invitationId: invitation.id },
+    });
     return { success: true, invitation };
   } catch (error) {
     console.error("Error creating invitation:", error);
@@ -140,15 +148,23 @@ export async function getMyInvitations() {
     const user = await getCurrentUser();
     if (!user) return [];
 
+    const invitationMatchOr: Prisma.InvitationWhereInput[] = [
+      { inviteeUserId: user.id },
+    ];
+    if (user.username) {
+      invitationMatchOr.push({ inviteeUsername: user.username.toLowerCase() });
+    }
+    if (user.empNo) {
+      invitationMatchOr.push({ inviteeEmpNo: user.empNo });
+    }
+    if (user.email) {
+      invitationMatchOr.push({ inviteeEmail: user.email.toLowerCase() });
+    }
+
     const invitations = await prisma.invitation.findMany({
       where: {
         status: "PENDING",
-        OR: [
-          { inviteeUserId: user.id },
-          user.username ? { inviteeUsername: user.username.toLowerCase() } : undefined,
-          user.empNo ? { inviteeEmpNo: user.empNo } : undefined,
-          user.email ? { inviteeEmail: user.email.toLowerCase() } : undefined,
-        ].filter(Boolean) as Array<Record<string, string>>,
+        OR: invitationMatchOr,
       },
       include: {
         team: true,
@@ -191,16 +207,24 @@ export async function respondToInvitation(
       return { success: false, error: "Unauthorized" };
     }
 
+    const invitationMatchOr: Prisma.InvitationWhereInput[] = [
+      { inviteeUserId: user.id },
+    ];
+    if (user.username) {
+      invitationMatchOr.push({ inviteeUsername: user.username.toLowerCase() });
+    }
+    if (user.empNo) {
+      invitationMatchOr.push({ inviteeEmpNo: user.empNo });
+    }
+    if (user.email) {
+      invitationMatchOr.push({ inviteeEmail: user.email.toLowerCase() });
+    }
+
     const invitation = await prisma.invitation.findFirst({
       where: {
         id: invitationId,
         status: "PENDING",
-        OR: [
-          { inviteeUserId: user.id },
-          user.username ? { inviteeUsername: user.username.toLowerCase() } : undefined,
-          user.empNo ? { inviteeEmpNo: user.empNo } : undefined,
-          user.email ? { inviteeEmail: user.email.toLowerCase() } : undefined,
-        ].filter(Boolean) as Array<Record<string, string>>,
+        OR: invitationMatchOr,
       },
     });
 
@@ -246,6 +270,10 @@ export async function respondToInvitation(
 
     revalidatePath("/notifications");
     revalidatePath("/projects");
+    await publishRealtimeEvent({
+      type: "invitation.responded",
+      payload: { invitationId, decision, teamId: invitation.teamId },
+    });
     return { success: true };
   } catch (error) {
     console.error("Error responding to invitation:", error);

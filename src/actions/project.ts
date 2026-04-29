@@ -3,6 +3,7 @@
 import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { latin1Safe } from "@/utils/encoding";
+import { publishRealtimeEvent } from "@/lib/realtime";
 
 import { revalidatePath } from "next/cache";
 
@@ -111,6 +112,10 @@ export async function createProject(name: string, dueDate: string | null) {
     });
 
     revalidatePath("/projects");
+    await publishRealtimeEvent({
+      type: "project.created",
+      payload: { projectId: newProject.id, teamId: team.id },
+    });
     return { success: true, project: newProject };
   } catch (error) {
     console.error("Error creating project:", error);
@@ -124,6 +129,10 @@ export async function deleteProject(id: string) {
       where: { id },
     });
     revalidatePath("/projects");
+    await publishRealtimeEvent({
+      type: "project.deleted",
+      payload: { projectId: id },
+    });
     return { success: true };
   } catch (error) {
     console.error("Error deleting project:", error);
