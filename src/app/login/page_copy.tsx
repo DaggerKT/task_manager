@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { login, fetchUserInfo } from "@/apis/auth";
-import { syncUserToDatabase } from "@/actions/auth";
+import { login } from "@/apis/auth";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -28,7 +27,7 @@ export default function LoginPage() {
       } else {
         setError(data.message || "ล็อคอินไม่สำเร็จ กรุณาตรวจสอบข้อมูล");
       }
-    } catch (err) {
+    } catch {
       setError("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์");
     } finally {
       setLoading(false);

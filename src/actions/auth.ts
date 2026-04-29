@@ -4,11 +4,29 @@ import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { latin1Safe } from "@/utils/encoding";
 
-export async function syncUserToDatabase(empData: any) {
+type EmployeeData = {
+  empNo: string;
+  empUserName: string;
+  empEmail: string;
+  empName?: string | null;
+  empPositionName?: string | null;
+  empPositionShortName?: string | null;
+  empDeptName?: string | null;
+  empDeptShortName?: string | null;
+  empImg?: string | null;
+};
+
+export async function syncUserToDatabase(empData: EmployeeData) {
   try {
-    const safeName       = latin1Safe(empData.empName, empData.empUserName);
-    const safePosition   = latin1Safe(empData.empPositionName, empData.empPositionShortName);
-    const safeDepartment = latin1Safe(empData.empDeptName, empData.empDeptShortName);
+    const safeName = latin1Safe(empData.empName, empData.empUserName);
+    const safePosition = latin1Safe(
+      empData.empPositionName,
+      empData.empPositionShortName || "",
+    );
+    const safeDepartment = latin1Safe(
+      empData.empDeptName,
+      empData.empDeptShortName || "",
+    );
 
     const user = await prisma.user.upsert({
       where: {

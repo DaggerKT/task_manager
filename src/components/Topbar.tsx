@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { LogOut, Bell } from "lucide-react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { fetchUserInfo } from "@/apis/auth";
 import { getPendingInvitationCount } from "@/actions/invitation";
@@ -115,10 +116,13 @@ export function Topbar() {
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold overflow-hidden">
               {user.empImg ? (
-                <img
+                <Image
                   src={user.empImg}
                   alt={user.empName}
                   className="w-full h-full object-cover"
+                  width={32}
+                  height={32}
+                  unoptimized
                 />
               ) : (
                 user.empName.charAt(0)

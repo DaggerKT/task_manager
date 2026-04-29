@@ -6,7 +6,20 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createProject, deleteProject } from "@/actions/project";
 
-export default function ProjectsList({ initialProjects }: { initialProjects: any[] }) {
+type ProjectItem = {
+  id: string;
+  name: string;
+  status: string;
+  progress: number;
+  members: number;
+  dueDate: string | null;
+};
+
+export default function ProjectsList({
+  initialProjects,
+}: {
+  initialProjects: ProjectItem[];
+}) {
   const router = useRouter();
   const [projects, setProjects] = useState(initialProjects);
 
@@ -77,7 +90,7 @@ export default function ProjectsList({ initialProjects }: { initialProjects: any
 
   const handleDeleteProject = async (id: string) => {
     if (confirm("คุณแน่ใจหรือไม่ที่จะลบโปรเจคนี้?")) {
-       setProjects(projects.filter((p: any) => p.id !== id));
+       setProjects(projects.filter((p) => p.id !== id));
        await deleteProject(id);
     }
   };

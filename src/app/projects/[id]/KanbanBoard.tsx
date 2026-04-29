@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import {
-  Calendar,
   MoreHorizontal,
   Plus,
   MessageSquare,
@@ -34,18 +34,80 @@ import {
 import { addComment } from "@/actions/comment";
 import { createInvitation } from "@/actions/invitation";
 
+type RawTeamMember = {
+  userId?: string;
+  id?: string;
+  role?: string;
+  user?: {
+    name?: string | null;
+    avatar?: string | null;
+  } | null;
+};
+
+type BoardProject = {
+  name: string;
+  status: string;
+  description?: string | null;
+  teamId: string;
+  team?: {
+    members?: RawTeamMember[] | null;
+  } | null;
+};
+
+type BoardColumn = {
+  id: string;
+  title: string;
+  color: string;
+};
+
+type BoardComment = {
+  id: string;
+  text: string;
+  author: string;
+  timestamp: string;
+  authorName?: string;
+  avatarUrl?: string;
+};
+
+type BoardTask = {
+  id: string;
+  status: string;
+  type: string;
+  title: string;
+  assignee: string;
+  description?: string;
+  comments?: number;
+  commentList?: BoardComment[];
+  [key: string]: unknown;
+};
+
+type BoardMember = {
+  id: string;
+  name: string;
+  role: string;
+  avatar: string;
+  avatarUrl: string;
+};
+
+type KanbanBoardProps = {
+  initialProject: BoardProject;
+  initialSteps: BoardColumn[];
+  initialTasks: BoardTask[];
+  currentUserId: string;
+};
+
 export default function KanbanBoard({
   initialProject,
   initialSteps,
   initialTasks,
   currentUserId,
-}: any) {
+}: KanbanBoardProps) {
   const params = useParams();
   const router = useRouter();
   const projectId = params.id as string;
 
-  const members: any[] =
-    initialProject?.team?.members?.map((m: any) => ({
+  const members: BoardMember[] =
+    initialProject?.team?.members?.map((m) => ({
       id: m.userId || m.id,
       name: m.user?.name || "Unknown User",
       role: m.role || "Member",
@@ -53,18 +115,19 @@ export default function KanbanBoard({
       avatarUrl: m.user?.avatar || "",
     })) || [];
 
-  const currentUser =
+  const currentUser: BoardMember =
     members.find((member) => member.id === currentUserId) ||
-    ({
+    {
       id: currentUserId,
       name: "Current User",
+      role: "Member",
       avatar: "U",
       avatarUrl: "",
-    } as any);
+    };
 
   // Initialize with DB actual items directly
-  const [columns, setColumns] = useState<any[]>(initialSteps);
-  const [tasks, setTasks] = useState<any[]>(initialTasks);
+  const [columns, setColumns] = useState<BoardColumn[]>(initialSteps);
+  const [tasks, setTasks] = useState<BoardTask[]>(initialTasks);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
 
   // Modal State (Column)
@@ -87,8 +150,7 @@ export default function KanbanBoard({
   const [inviteSuccess, setInviteSuccess] = useState("");
 
   // Modal State (View Task)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [viewTask, setViewTask] = useState<any | null>(null);
+  const [viewTask, setViewTask] = useState<BoardTask | null>(null);
   const [newComment, setNewComment] = useState("");
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editDescriptionContent, setEditDescriptionContent] = useState("");
@@ -128,7 +190,7 @@ export default function KanbanBoard({
     const updatedTask = { ...viewTask, description: editDescriptionContent };
 
     // Optimistic UI updates
-    setTasks(tasks.map((t: any) => (t.id === viewTask.id ? updatedTask : t)));
+    setTasks(tasks.map((t) => (t.id === viewTask.id ? updatedTask : t)));
     setViewTask(updatedTask);
     setIsEditingDescription(false);
 
@@ -169,7 +231,7 @@ export default function KanbanBoard({
         commentList: [...(viewTask.commentList || []), newCommentObj],
       };
 
-      setTasks(tasks.map((t: any) => (t.id === viewTask.id ? updatedTask : t)));
+      setTasks(tasks.map((t) => (t.id === viewTask.id ? updatedTask : t)));
       setViewTask(updatedTask);
     }
     setNewComment("");
@@ -945,15 +1007,17 @@ export default function KanbanBoard({
                   ความคิดเห็น ({viewTask.comments || 0})
                 </h3>
                 <div className="space-y-3 mb-4">
-                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                  {(viewTask.commentList || []).map((comment: any) => (
+                  {(viewTask.commentList || []).map((comment: BoardComment) => (
                     <div key={comment.id} className="flex gap-3">
                       <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-xs font-bold text-blue-700 shrink-0 border border-white shadow-sm ring-1 ring-gray-100">
                         {comment.avatarUrl ? (
-                          <img
+                          <Image
                             src={comment.avatarUrl}
                             alt={comment.authorName || "Commenter"}
                             className="w-full h-full object-cover rounded-full"
+                            width={32}
+                            height={32}
+                            unoptimized
                           />
                         ) : (
                           comment.author
@@ -986,10 +1050,13 @@ export default function KanbanBoard({
                 <div className="flex gap-3 items-start mt-4">
                   <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-xs font-bold text-blue-700 shrink-0 border border-white shadow-sm ring-1 ring-gray-100">
                     {currentUser.avatarUrl ? (
-                      <img
+                      <Image
                         src={currentUser.avatarUrl}
                         alt={currentUser.name}
                         className="w-full h-full object-cover rounded-full"
+                        width={32}
+                        height={32}
+                        unoptimized
                       />
                     ) : (
                       currentUser.avatar
