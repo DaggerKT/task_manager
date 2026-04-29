@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createProject, deleteProject } from "@/actions/project";
 import type { ProjectItem } from "@/types/project";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function ProjectsList({
   initialProjects,
@@ -13,6 +14,7 @@ export default function ProjectsList({
   initialProjects: ProjectItem[];
 }) {
   const router = useRouter();
+  const { t } = useLanguage();
   const [projects, setProjects] = useState(initialProjects);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -81,7 +83,7 @@ export default function ProjectsList({
   };
 
   const handleDeleteProject = async (id: string) => {
-    if (confirm("คุณแน่ใจหรือไม่ที่จะลบโปรเจคนี้?")) {
+    if (confirm(t.projects.deleteConfirm)) {
        setProjects(projects.filter((p) => p.id !== id));
        await deleteProject(id);
     }
@@ -91,9 +93,9 @@ export default function ProjectsList({
     <div className="space-y-6 pb-10">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">โปรเจคของฉัน</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t.projects.title}</h1>
           <p className="text-sm text-gray-500 mt-1">
-            จัดการและติดตามสถานะโปรเจคต่างๆ
+            {t.projects.subtitle}
           </p>
         </div>
         <button
@@ -101,7 +103,7 @@ export default function ProjectsList({
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
         >
           <Plus className="w-5 h-5" />
-          <span>สร้างโปรเจคใหม่</span>
+          <span>{t.projects.createNew}</span>
         </button>
       </div>
 
@@ -111,7 +113,7 @@ export default function ProjectsList({
           <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="ค้นหาโปรเจค..."
+            placeholder={t.projects.searchPlaceholder}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
@@ -122,19 +124,19 @@ export default function ProjectsList({
             onClick={() => setStatusFilter("All")}
             className={`px-4 py-2 ${statusFilter === "All" ? "bg-blue-50 text-blue-700" : "hover:bg-gray-100 text-gray-600"} rounded-lg text-sm font-medium whitespace-nowrap`}
           >
-            ทั้งหมด
+            {t.projects.filterAll}
           </button>
           <button
             onClick={() => setStatusFilter("Active")}
             className={`px-4 py-2 ${statusFilter === "Active" ? "bg-blue-50 text-blue-700" : "hover:bg-gray-100 text-gray-600"} rounded-lg text-sm font-medium whitespace-nowrap`}
           >
-            กำลังดำเนินการ (Active)
+            {t.projects.filterActive}
           </button>
           <button
             onClick={() => setStatusFilter("Done")}
             className={`px-4 py-2 ${statusFilter === "Done" ? "bg-blue-50 text-blue-700" : "hover:bg-gray-100 text-gray-600"} rounded-lg text-sm font-medium whitespace-nowrap`}
           >
-            เสร็จสิ้น (Done)
+            {t.projects.filterDone}
           </button>
         </div>
       </div>
@@ -143,7 +145,7 @@ export default function ProjectsList({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredProjects.length === 0 ? (
           <div className="col-span-full py-12 text-center text-gray-500 bg-white rounded-xl border border-dashed border-gray-300">
-            ไม่พบโปรเจคที่ตรงกับเงื่อนไข
+            {t.projects.noResults}
           </div>
         ) : (
           filteredProjects.map((project) => (
@@ -180,7 +182,7 @@ export default function ProjectsList({
                           handleDeleteProject(project.id);
                         }}
                       >
-                        ลบโปรเจค
+                        {t.projects.deleteProject}
                       </button>
                     </div>
                   )}
@@ -191,19 +193,19 @@ export default function ProjectsList({
                 {project.name}
               </h3>
               <p className="text-sm text-gray-500 mb-4">
-                กำหนดส่ง:{" "}
+                {t.projects.dueDate}:{" "}
                 {project.dueDate
                   ? new Date(project.dueDate).toLocaleDateString("th-TH", {
                       day: "numeric",
                       month: "short",
                       year: "numeric",
                     })
-                  : "ไม่ระบุ"}
+                  : t.projects.noDueDate}
               </p>
 
               <div className="space-y-2">
                 <div className="flex justify-between items-center text-sm">
-                  <span className="font-medium text-gray-700">ความคืบหน้า</span>
+                  <span className="font-medium text-gray-700">{t.projects.progress}</span>
                   <span className="text-gray-600">{project.progress}%</span>
                 </div>
                 <div className="w-full bg-gray-100 rounded-full h-2.5">
@@ -253,7 +255,7 @@ export default function ProjectsList({
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-gray-900">
-                สร้างโปรเจคใหม่
+                {t.projects.modal.title}
               </h3>
               <button
                 onClick={() => setIsCreateModalOpen(false)}
@@ -266,20 +268,20 @@ export default function ProjectsList({
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  ชื่อโปรเจค <span className="text-red-500">*</span>
+                  {t.projects.modal.nameLabel} <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={newProjectName}
                   onChange={(e) => setNewProjectName(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  placeholder="เช่น Website Redesign"
+                  placeholder={t.projects.modal.namePlaceholder}
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  กำหนดส่ง
+                  {t.projects.modal.dueDateLabel}
                 </label>
                 <input
                   type="date"
@@ -294,14 +296,14 @@ export default function ProjectsList({
                   onClick={() => setIsCreateModalOpen(false)}
                   className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition-colors"
                 >
-                  ยกเลิก
+                  {t.common.cancel}
                 </button>
                 <button
                   onClick={handleCreateProject}
                   disabled={!newProjectName.trim()}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  สร้างโปรเจค
+                  {t.projects.modal.submit}
                 </button>
               </div>
             </div>

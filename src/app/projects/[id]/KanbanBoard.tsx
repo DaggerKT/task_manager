@@ -60,15 +60,15 @@ export default function KanbanBoard({
       avatarUrl: m.user?.avatar || "",
     })) || [];
 
-  const currentUser: BoardMember =
-    members.find((member) => member.id === currentUserId) ||
-    {
-      id: currentUserId,
-      name: "Current User",
-      role: "Member",
-      avatar: "U",
-      avatarUrl: "",
-    };
+  const currentUser: BoardMember = members.find(
+    (member) => member.id === currentUserId,
+  ) || {
+    id: currentUserId,
+    name: "Current User",
+    role: "Member",
+    avatar: "U",
+    avatarUrl: "",
+  };
 
   // Initialize with DB actual items directly
   const [columns, setColumns] = useState<BoardColumn[]>(initialSteps);
@@ -450,7 +450,7 @@ export default function KanbanBoard({
 
                 <div className="flex items-center gap-1">
                   {/* ปุ่มขยับคอลัมน์ (แสดงเฉพาะเมื่อไม่ใช่ todo และไม่ใช่อันก่อน done ที่จะขยับไป right) */}
-                  {index > 1 && (
+                  {index > 1 && index < columns.length - 1 && (
                     <button
                       className="text-gray-400 hover:text-blue-600 transition-colors p-1"
                       onClick={() => handleMoveColumn(index, "left")}

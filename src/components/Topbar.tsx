@@ -6,10 +6,12 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { fetchUserInfo } from "@/apis/auth";
 import { getPendingInvitationCount } from "@/actions/invitation";
+import { useLanguage } from "@/contexts/LanguageContext";
 import type { UserInfo } from "@/types/employee";
 
 export function Topbar() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [user, setUser] = useState<UserInfo | null>(null);
   const [pendingInvitations, setPendingInvitations] = useState(0);
 
@@ -72,7 +74,7 @@ export function Topbar() {
     <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
       <div>
         <h1 className="text-xl font-bold tracking-tight text-gray-800">
-          หน้ากระดานโปรเจค
+          {t.topbar.title}
         </h1>
       </div>
 
@@ -80,7 +82,7 @@ export function Topbar() {
         <button
           onClick={() => router.push("/notifications")}
           className="relative p-2 rounded-lg text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-          title="การแจ้งเตือน"
+          title={t.topbar.notifications}
         >
           <Bell className="w-5 h-5" />
           {pendingInvitations > 0 && (
@@ -128,7 +130,7 @@ export function Topbar() {
         <button
           onClick={handleLogout}
           className="flex items-center gap-2 text-sm text-gray-600 hover:text-red-600 transition-colors"
-          title="ออกจากระบบ"
+          title={t.topbar.logout}
         >
           <LogOut className="w-4 h-4" />
         </button>

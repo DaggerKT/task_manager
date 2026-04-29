@@ -10,9 +10,11 @@ import {
 } from "lucide-react";
 import { getProjects } from "@/actions/project";
 import type { DashboardProject } from "@/types/project";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [projects, setProjects] = useState<DashboardProject[]>([]);
   const [openMenuProjectId, setOpenMenuProjectId] = useState<string | null>(
     null,
@@ -95,7 +97,7 @@ export default function DashboardPage() {
         {/* Stats Cards */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-500">โครงการทั้งหมด</p>
+            <p className="text-sm font-medium text-gray-500">{t.dashboard.totalProjects}</p>
             <h3 className="text-3xl font-bold text-gray-800 mt-1">
               {totalProjects}
             </h3>
@@ -107,7 +109,7 @@ export default function DashboardPage() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex items-center justify-between">
           <div>
             <p className="text-sm font-medium text-gray-500">
-              งานที่ต้องทำ (TODO)
+              {t.dashboard.todoTasks}
             </p>
             <h3 className="text-3xl font-bold text-gray-800 mt-1">
               {totalTodoTasks}
@@ -119,7 +121,7 @@ export default function DashboardPage() {
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-500">งานเสร็จแล้ว</p>
+            <p className="text-sm font-medium text-gray-500">{t.dashboard.doneTasks}</p>
             <h3 className="text-3xl font-bold text-gray-800 mt-1">
               {totalDoneTasks}
             </h3>
@@ -133,9 +135,9 @@ export default function DashboardPage() {
       {/* Projects List */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-visible">
         <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="font-semibold text-lg text-gray-800">โปรเจคล่าสุด</h3>
+          <h3 className="font-semibold text-lg text-gray-800">{t.dashboard.recentProjects}</h3>
           <button className="text-sm text-blue-600 hover:underline font-medium">
-            ดูทั้งหมด
+            {t.dashboard.viewAll}
           </button>
         </div>
 
@@ -187,7 +189,7 @@ export default function DashboardPage() {
                         router.push(`/projects/${project.id}`);
                       }}
                     >
-                      เปิดโปรเจกต์
+                      {t.dashboard.openProject}
                     </button>
                     <button
                       className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
@@ -201,7 +203,7 @@ export default function DashboardPage() {
                         setOpenMenuProjectId(null);
                       }}
                     >
-                      คัดลอก Project ID
+                      {t.dashboard.copyProjectId}
                     </button>
                   </div>
                 )}

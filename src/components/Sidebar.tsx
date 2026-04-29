@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import {
   LayoutDashboard,
@@ -6,8 +8,11 @@ import {
   Bell,
   Settings,
 } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export function Sidebar() {
+  const { t } = useLanguage();
+
   return (
     <aside className="w-64 h-screen bg-gray-900 text-white flex flex-col fixed left-0 top-0">
       <div className="p-6">
@@ -23,21 +28,21 @@ export function Sidebar() {
           className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-800 hover:text-white text-gray-300 transition-colors"
         >
           <LayoutDashboard className="w-5 h-5" />
-          <span className="flex-1">ภาพรวม (Dashboard)</span>
+          <span className="flex-1">{t.sidebar.dashboard}</span>
         </Link>
         <Link
           href="/projects"
           className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-800 hover:text-white text-gray-300 transition-colors"
         >
           <FolderGit2 className="w-5 h-5" />
-          <span className="flex-1">โปรเจคของฉัน</span>
+          <span className="flex-1">{t.sidebar.projects}</span>
         </Link>
         <Link
           href="/notifications"
           className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-800 hover:text-white text-gray-300 transition-colors"
         >
           <Bell className="w-5 h-5" />
-          <span className="flex-1">แจ้งเตือน</span>
+          <span className="flex-1">{t.sidebar.notifications}</span>
         </Link>
       </nav>
 
@@ -47,7 +52,7 @@ export function Sidebar() {
           className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-800 hover:text-white text-gray-300 transition-colors"
         >
           <Settings className="w-5 h-5" />
-          <span className="flex-1">ตั้งค่า</span>
+          <span className="flex-1">{t.sidebar.settings}</span>
         </Link>
       </div>
     </aside>

@@ -1,5 +1,6 @@
 import "./globals.css";
 import { AppLayoutManager } from "@/components/AppLayoutManager";
+import { LanguageProvider } from "@/contexts/LanguageContext";
 
 export const metadata = {
   title: "Task Manager",
@@ -14,7 +15,9 @@ export default function RootLayout({
   return (
     <html lang="th">
       <body>
-        <AppLayoutManager>{children}</AppLayoutManager>
+        <LanguageProvider>
+          <AppLayoutManager>{children}</AppLayoutManager>
+        </LanguageProvider>
       </body>
     </html>
   );

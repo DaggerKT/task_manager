@@ -1,0 +1,88 @@
+{
+  "settings": {
+    "title": "ตั้งค่า",
+    "subtitle": "จัดการการตั้งค่าบัญชีและการใช้งานระบบ",
+    "profile": {
+      "title": "ข้อมูลผู้ใช้งาน",
+      "firstName": "ชื่อ",
+      "lastName": "นามสกุล",
+      "email": "อีเมล",
+      "emailNote": "ไม่อนุญาตให้เปลี่ยนอีเมลที่ใช้สมัคร กรุณาติดต่อ Admin หากต้องการเปลี่ยน"
+    },
+    "notifications": {
+      "title": "การแจ้งเตือน",
+      "email": "แจ้งเตือนผ่านอีเมล",
+      "emailDesc": "รับแจ้งเตือนเมื่อมีการมอบหมายงานใหม่ให้คุณ",
+      "push": "แจ้งเตือนบนเบราว์เซอร์",
+      "pushDesc": "รับแจ้งเตือนแบบเรียลไทม์เมื่อโปรเจคมีการเปลี่ยนแปลง"
+    },
+    "preferences": {
+      "title": "การตั้งค่าทั่วไป",
+      "language": "ภาษา",
+      "languageTh": "ภาษาไทย",
+      "languageEn": "อังกฤษ"
+    },
+    "save": "บันทึกการเปลี่ยนแปลง",
+    "saveSuccess": "บันทึกการตั้งค่าเรียบร้อยแล้ว"
+  },
+  "sidebar": {
+    "dashboard": "ภาพรวม (Dashboard)",
+    "projects": "โปรเจคของฉัน",
+    "notifications": "แจ้งเตือน",
+    "settings": "ตั้งค่า"
+  },
+  "topbar": {
+    "title": "หน้ากระดานโปรเจค",
+    "notifications": "การแจ้งเตือน",
+    "logout": "ออกจากระบบ"
+  },
+  "common": {
+    "cancel": "ยกเลิก",
+    "save": "บันทึก",
+    "delete": "ลบ",
+    "confirm": "ยืนยัน",
+    "loading": "กำลังโหลด..."
+  },
+  "dashboard": {
+    "totalProjects": "โครงการทั้งหมด",
+    "todoTasks": "งานที่ต้องทำ (TODO)",
+    "doneTasks": "งานเสร็จแล้ว",
+    "recentProjects": "โปรเจคล่าสุด",
+    "viewAll": "ดูทั้งหมด",
+    "openProject": "เปิดโปรเจค",
+    "copyProjectId": "คัดลอก Project ID"
+  },
+  "projects": {
+    "title": "โปรเจคของฉัน",
+    "subtitle": "จัดการและติดตามสถานะโปรเจคต่าง¶",
+    "createNew": "สร้างโปรเจคใหม่",
+    "searchPlaceholder": "ค้นหาโปรเจค...",
+    "filterAll": "ทั้งหมด",
+    "filterActive": "กำลังดำเนินการ (Active)",
+    "filterDone": "เสร็จสิ้น (Done)",
+    "noResults": "ไม่พบโปรเจคที่ตรงกับเงื่อนไข",
+    "dueDate": "กำหนดส่ง",
+    "noDueDate": "ไม่ระบุ",
+    "progress": "ความคืบหน้า",
+    "deleteProject": "ลบโปรเจค",
+    "deleteConfirm": "คุณแน่ใจหรือไม่ที่จะลบโปรเจคนี้?",
+    "modal": {
+      "title": "สร้างโปรเจคใหม่",
+      "nameLabel": "ชื่อโปรเจค",
+      "namePlaceholder": "เช่น Website Redesign",
+      "dueDateLabel": "กำหนดส่ง",
+      "submit": "สร้างโปรเจค"
+    }
+  },
+  "notifications": {
+    "title": "การแจ้งเตือน",
+    "subtitle": "คำเชิญเข้าร่วมโปรเจคที่รอการตอบรับ",
+    "loadError": "ไม่สามารถโหลดการแจ้งเตือนได้",
+    "empty": "ยังไม่มีคำเชิญใหม่",
+    "inviteFrom": "เชิญคุณเข้าทีม",
+    "project": "โปรเจค",
+    "accept": "ยอมรับ",
+    "decline": "ปฏิเสธ",
+    "generalError": "เกิดข้อผิดพลาด"
+  }
+}
