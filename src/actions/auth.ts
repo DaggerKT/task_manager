@@ -3,18 +3,7 @@
 import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { latin1Safe } from "@/utils/encoding";
-
-type EmployeeData = {
-  empNo: string;
-  empUserName: string;
-  empEmail: string;
-  empName?: string | null;
-  empPositionName?: string | null;
-  empPositionShortName?: string | null;
-  empDeptName?: string | null;
-  empDeptShortName?: string | null;
-  empImg?: string | null;
-};
+import type { EmployeeData } from "@/types/employee";
 
 export async function syncUserToDatabase(empData: EmployeeData) {
   try {

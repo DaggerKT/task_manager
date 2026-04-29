@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { X } from "lucide-react";
-import { Column, ColorOption } from "../types";
+import type { Column, ColorOption } from "@/types/kanban";
 
 interface Props {
   isOpen: boolean;

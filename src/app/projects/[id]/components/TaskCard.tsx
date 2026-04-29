@@ -1,5 +1,5 @@
 import { MessageSquare, MoreHorizontal } from "lucide-react";
-import { Task } from "../types";
+import type { Task } from "@/types/kanban";
 
 interface Props {
   task: Task;

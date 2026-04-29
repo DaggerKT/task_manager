@@ -9,15 +9,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { getProjects } from "@/actions/project";
-
-type DashboardProject = {
-  id: string;
-  name: string;
-  status: string;
-  progress: number;
-  totalTasks: number;
-  doneTasks: number;
-};
+import type { DashboardProject } from "@/types/project";
 
 export default function DashboardPage() {
   const router = useRouter();

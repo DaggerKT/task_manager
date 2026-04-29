@@ -6,29 +6,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { fetchUserInfo } from "@/apis/auth";
 import { getPendingInvitationCount } from "@/actions/invitation";
-
-interface UserInfo {
-  empNo: string;
-  empName: string;
-  empPositionCode: string;
-  empPositionName: string;
-  empPositionShotName: string;
-  empPositionShortName: string;
-  empSectCode: string;
-  empSectName: string;
-  empSectShotName: string;
-  empSectShortName: string;
-  empDeptCode: string;
-  empDeptName: string;
-  empDeptShotName: string;
-  empDeptShortName: string;
-  empLocationCode: string;
-  empDivisionCode: string;
-  empDivisionName: string;
-  empEmail: string;
-  empImg: string;
-  empUserName: string;
-}
+import type { UserInfo } from "@/types/employee";
 
 export function Topbar() {
   const router = useRouter();

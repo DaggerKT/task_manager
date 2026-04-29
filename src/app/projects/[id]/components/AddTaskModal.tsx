@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import dynamic from "next/dynamic";
-import { ProjectMember } from "../types";
+import type { ProjectMember } from "@/types/project";
 import "react-quill-new/dist/quill.snow.css";
 
 const ReactQuill = dynamic(() => import("react-quill-new"), { ssr: false });

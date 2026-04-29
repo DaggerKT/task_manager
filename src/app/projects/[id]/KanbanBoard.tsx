@@ -33,68 +33,13 @@ import {
 } from "@/actions/task";
 import { addComment } from "@/actions/comment";
 import { createInvitation } from "@/actions/invitation";
-
-type RawTeamMember = {
-  userId?: string;
-  id?: string;
-  role?: string;
-  user?: {
-    name?: string | null;
-    avatar?: string | null;
-  } | null;
-};
-
-type BoardProject = {
-  name: string;
-  status: string;
-  description?: string | null;
-  teamId: string;
-  team?: {
-    members?: RawTeamMember[] | null;
-  } | null;
-};
-
-type BoardColumn = {
-  id: string;
-  title: string;
-  color: string;
-};
-
-type BoardComment = {
-  id: string;
-  text: string;
-  author: string;
-  timestamp: string;
-  authorName?: string;
-  avatarUrl?: string;
-};
-
-type BoardTask = {
-  id: string;
-  status: string;
-  type: string;
-  title: string;
-  assignee: string;
-  description?: string;
-  comments?: number;
-  commentList?: BoardComment[];
-  [key: string]: unknown;
-};
-
-type BoardMember = {
-  id: string;
-  name: string;
-  role: string;
-  avatar: string;
-  avatarUrl: string;
-};
-
-type KanbanBoardProps = {
-  initialProject: BoardProject;
-  initialSteps: BoardColumn[];
-  initialTasks: BoardTask[];
-  currentUserId: string;
-};
+import type {
+  BoardColumn,
+  BoardComment,
+  BoardTask,
+  BoardMember,
+  KanbanBoardProps,
+} from "@/types/kanban";
 
 export default function KanbanBoard({
   initialProject,
@@ -108,7 +53,7 @@ export default function KanbanBoard({
 
   const members: BoardMember[] =
     initialProject?.team?.members?.map((m) => ({
-      id: m.userId || m.id,
+      id: m.userId ?? m.id ?? "",
       name: m.user?.name || "Unknown User",
       role: m.role || "Member",
       avatar: m.user?.name?.[0] || "U",
@@ -260,11 +205,11 @@ export default function KanbanBoard({
     });
 
     if (res.success && res.task) {
-      const newTask = {
+      const newTask: BoardTask = {
         ...res.task,
         status: res.task.stepId, // Map stepId to status for UI
         assignee: newTaskAssignee, // UI mock assignee avatar character for now
-        description: res.task.content,
+        description: res.task.content ?? undefined,
         comments: 0,
         commentList: [],
       };
@@ -833,11 +778,11 @@ export default function KanbanBoard({
                 </div>
               </div>
 
-              <div className="flex-1 flex flex-col min-h-[250px]">
+              <div className="flex-1 flex flex-col min-h-62.5">
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   รายละเอียด (Description - รองรับรูปภาพ)
                 </label>
-                <div className="flex-1 border border-gray-300 rounded-lg overflow-hidden [&_.quill]:h-[200px] [&_.ql-container]:border-none [&_.ql-toolbar]:border-none [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-gray-300">
+                <div className="flex-1 border border-gray-300 rounded-lg overflow-hidden [&_.quill]:h-50 [&_.ql-container]:border-none [&_.ql-toolbar]:border-none [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-gray-300">
                   <ReactQuill
                     theme="snow"
                     value={newTaskDescription}
@@ -958,7 +903,7 @@ export default function KanbanBoard({
                 </div>
 
                 {isEditingDescription ? (
-                  <div className="border border-gray-300 rounded-lg overflow-hidden [&_.quill]:h-[150px] [&_.ql-container]:border-none [&_.ql-toolbar]:border-none [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-gray-300 flex flex-col mb-4">
+                  <div className="border border-gray-300 rounded-lg overflow-hidden [&_.quill]:h-37.5 [&_.ql-container]:border-none [&_.ql-toolbar]:border-none [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-gray-300 flex flex-col mb-4">
                     <ReactQuill
                       theme="snow"
                       value={editDescriptionContent}

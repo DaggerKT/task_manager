@@ -5,15 +5,7 @@ import { FolderGit2, Plus, Search, MoreVertical, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createProject, deleteProject } from "@/actions/project";
-
-type ProjectItem = {
-  id: string;
-  name: string;
-  status: string;
-  progress: number;
-  members: number;
-  dueDate: string | null;
-};
+import type { ProjectItem } from "@/types/project";
 
 export default function ProjectsList({
   initialProjects,
