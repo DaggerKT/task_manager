@@ -91,6 +91,9 @@ export interface BoardTask {
   description?: string;
   comments?: number;
   commentList?: BoardComment[];
+  creatorId?: string;
+  creatorName?: string;
+  creatorAvatarUrl?: string;
   [key: string]: unknown;
 }
 

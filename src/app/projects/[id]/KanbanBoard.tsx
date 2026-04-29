@@ -1363,6 +1363,33 @@ export default function KanbanBoard({
                     minOne
                   />
                 </div>
+
+                {/* Creator — read-only, spans full width */}
+                <div className="col-span-2 pt-2 border-t border-gray-100">
+                  <p className="text-xs text-gray-500 mb-1.5">สร้างโดย</p>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center text-[11px] font-bold text-purple-700 shrink-0 overflow-hidden">
+                      {viewTask.creatorAvatarUrl ? (
+                        <Image
+                          src={viewTask.creatorAvatarUrl as string}
+                          alt={viewTask.creatorName as string}
+                          width={28}
+                          height={28}
+                          className="w-full h-full object-cover"
+                          unoptimized
+                        />
+                      ) : (
+                        (viewTask.creatorName as string)?.[0]?.toUpperCase() ?? "?"
+                      )}
+                    </div>
+                    <span className="text-sm font-medium text-gray-800">
+                      {(viewTask.creatorName as string) || "ไม่ทราบ"}
+                    </span>
+                    <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
+                      ผู้สร้าง
+                    </span>
+                  </div>
+                </div>
               </div>
 
               <div className="flex flex-col">

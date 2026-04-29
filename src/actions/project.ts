@@ -213,6 +213,7 @@ export async function getProjectData(projectId: string) {
           include: { user: true },
           orderBy: { createdAt: "asc" },
         },
+        creator: true,
       },
     });
 

@@ -23,6 +23,9 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       avatar: a.user?.name?.[0] || "U",
       avatarUrl: a.user?.avatar || "",
     })),
+    creatorId: t.creatorId,
+    creatorName: t.creator?.name || "Unknown",
+    creatorAvatarUrl: t.creator?.avatar || "",
     description: t.content || "",
     comments: t.comments.length,
     commentList: t.comments.map(c => ({
