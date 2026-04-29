@@ -11,6 +11,8 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import "react-quill-new/dist/quill.snow.css";
 
@@ -30,9 +32,11 @@ import {
   createTask,
   updateTaskStatus,
   updateTaskDescription,
+  updateTaskAssignees,
 } from "@/actions/task";
 import { addComment } from "@/actions/comment";
 import { createInvitation } from "@/actions/invitation";
+import AssigneeCombobox from "./components/AssigneeCombobox";
 import type {
   BoardColumn,
   BoardComment,
@@ -58,6 +62,8 @@ export default function KanbanBoard({
       role: m.role || "Member",
       avatar: m.user?.name?.[0] || "U",
       avatarUrl: m.user?.avatar || "",
+      email: m.user?.email || "",
+      empNo: m.user?.empNo || "",
     })) || [];
 
   const currentUser: BoardMember = members.find(
@@ -85,7 +91,9 @@ export default function KanbanBoard({
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskType, setNewTaskType] = useState("General");
-  const [newTaskAssignee, setNewTaskAssignee] = useState("K");
+  const [newTaskAssigneeIds, setNewTaskAssigneeIds] = useState<string[]>(
+    currentUserId ? [currentUserId] : members[0] ? [members[0].id] : [],
+  );
   const [newTaskDescription, setNewTaskDescription] = useState("");
 
   // Modal State (Invite Member)
@@ -100,6 +108,18 @@ export default function KanbanBoard({
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editDescriptionContent, setEditDescriptionContent] = useState("");
 
+  // Member popup
+  const [memberPopupId, setMemberPopupId] = useState<string | null>(null);
+  const [showAllMembersPopup, setShowAllMembersPopup] = useState(false);
+
+  // Column context menu
+  const [openColMenuId, setOpenColMenuId] = useState<string | null>(null);
+  const [renamingCol, setRenamingCol] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+
   useEffect(() => {
     const syncTimer = window.setTimeout(() => {
       setColumns(initialSteps);
@@ -110,6 +130,30 @@ export default function KanbanBoard({
       window.clearTimeout(syncTimer);
     };
   }, [initialSteps, initialTasks]);
+
+  // Close column dropdown when clicking outside
+  useEffect(() => {
+    if (!openColMenuId) return;
+    const handler = () => setOpenColMenuId(null);
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, [openColMenuId]);
+
+  // Close member popup when clicking outside
+  useEffect(() => {
+    if (!memberPopupId) return;
+    const handler = () => setMemberPopupId(null);
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, [memberPopupId]);
+
+  // Close all-members popup when clicking outside
+  useEffect(() => {
+    if (!showAllMembersPopup) return;
+    const handler = () => setShowAllMembersPopup(false);
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, [showAllMembersPopup]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -184,6 +228,10 @@ export default function KanbanBoard({
 
   const handleAddTaskSubmit = async () => {
     if (!newTaskTitle.trim()) return;
+    if (newTaskAssigneeIds.length === 0) {
+      alert("ต้องมีผู้รับผิดชอบอย่างน้อย 1 คน");
+      return;
+    }
     if (!currentUserId) {
       alert("กรุณาเข้าสู่ระบบใหม่อีกครั้ง");
       return;
@@ -199,7 +247,7 @@ export default function KanbanBoard({
       content: newTaskDescription,
       projectId,
       stepId: defaultStepId,
-      assigneeId: undefined, // Assignee needs proper DB ID
+      assigneeIds: newTaskAssigneeIds,
       creatorId: currentUserId,
       order: tasks.length,
     });
@@ -208,7 +256,12 @@ export default function KanbanBoard({
       const newTask: BoardTask = {
         ...res.task,
         status: res.task.stepId, // Map stepId to status for UI
-        assignee: newTaskAssignee, // UI mock assignee avatar character for now
+        assignees: (res.task.assignees || []).map((a) => ({
+          id: a.userId,
+          name: a.user?.name || "Unknown User",
+          avatar: a.user?.name?.[0] || "U",
+          avatarUrl: a.user?.avatar || "",
+        })),
         description: res.task.content ?? undefined,
         comments: 0,
         commentList: [],
@@ -219,7 +272,9 @@ export default function KanbanBoard({
     setIsTaskModalOpen(false);
     setNewTaskTitle("");
     setNewTaskType("General");
-    setNewTaskAssignee("K");
+    setNewTaskAssigneeIds(
+      currentUserId ? [currentUserId] : members[0] ? [members[0].id] : [],
+    );
     setNewTaskDescription("");
   };
 
@@ -317,6 +372,21 @@ export default function KanbanBoard({
     setColumns(columns.filter((col) => col.id !== id));
   };
 
+  const handleRenameColumn = async () => {
+    if (!renamingCol || !renameValue.trim()) return;
+    const col = columns.find((c) => c.id === renamingCol.id);
+    if (!col) return;
+    const updatedCol = { ...col, title: renameValue.trim() };
+    setColumns(columns.map((c) => (c.id === col.id ? updatedCol : c)));
+    setRenamingCol(null);
+    await updateStep(
+      col.id,
+      renameValue.trim(),
+      col.color,
+      columns.indexOf(col),
+    );
+  };
+
   const handleDragStart = (e: React.DragEvent, id: string) => {
     setDraggedTaskId(id);
     e.dataTransfer.effectAllowed = "move";
@@ -361,6 +431,72 @@ export default function KanbanBoard({
     setInviteIdentifier("");
   };
 
+  const getTaskAssignees = (task: BoardTask) => task.assignees || [];
+
+  const applyTaskAssigneesToState = (
+    taskId: string,
+    assignees: BoardTask["assignees"],
+  ) => {
+    setTasks((prev) =>
+      prev.map((task) => (task.id === taskId ? { ...task, assignees } : task)),
+    );
+    setViewTask((prev) =>
+      prev && prev.id === taskId ? { ...prev, assignees } : prev,
+    );
+  };
+
+  const handleAddAssigneeToTask = async (taskId: string, userId: string) => {
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
+
+    const current = getTaskAssignees(task);
+    if (current.some((a) => a.id === userId)) return;
+
+    const nextIds = [...current.map((a) => a.id), userId];
+    const res = await updateTaskAssignees(taskId, nextIds, projectId);
+    if (!res.success) {
+      alert(res.error || "ไม่สามารถเพิ่มผู้รับผิดชอบได้");
+      return;
+    }
+
+    const nextAssignees = (res.task?.assignees || []).map((a) => ({
+      id: a.userId,
+      name: a.user?.name || "Unknown User",
+      avatar: a.user?.name?.[0] || "U",
+      avatarUrl: a.user?.avatar || "",
+    }));
+    applyTaskAssigneesToState(taskId, nextAssignees);
+  };
+
+  const handleRemoveAssigneeFromTask = async (
+    taskId: string,
+    userId: string,
+  ) => {
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
+
+    const current = getTaskAssignees(task);
+    if (current.length <= 1) {
+      alert("ต้องมีผู้รับผิดชอบอย่างน้อย 1 คน");
+      return;
+    }
+
+    const nextIds = current.map((a) => a.id).filter((id) => id !== userId);
+    const res = await updateTaskAssignees(taskId, nextIds, projectId);
+    if (!res.success) {
+      alert(res.error || "ไม่สามารถลบผู้รับผิดชอบได้");
+      return;
+    }
+
+    const nextAssignees = (res.task?.assignees || []).map((a) => ({
+      id: a.userId,
+      name: a.user?.name || "Unknown User",
+      avatar: a.user?.name?.[0] || "U",
+      avatarUrl: a.user?.avatar || "",
+    }));
+    applyTaskAssigneesToState(taskId, nextAssignees);
+  };
+
   return (
     <div className="h-full flex flex-col space-y-6">
       {/* Project Header */}
@@ -380,16 +516,152 @@ export default function KanbanBoard({
         {/* Members & Actions (Less prominent than tabs) */}
         <div className="flex items-center gap-4">
           <div className="flex items-center">
-            <div className="flex -space-x-2 mr-3">
-              {members.map((member) => (
-                <div
-                  key={member.id}
-                  title={member.name}
-                  className="w-8 h-8 rounded-full bg-linear-to-tr from-blue-100 to-blue-200 border-2 border-white flex items-center justify-center text-blue-700 text-xs font-bold shadow-sm cursor-help hover:-translate-y-1 transition-transform"
-                >
-                  {member.avatar}
+            <div className="flex -space-x-2 mr-3 relative">
+              {members.slice(0, 3).map((member) => (
+                <div key={member.id} className="relative">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMemberPopupId((prev) =>
+                        prev === member.id ? null : member.id,
+                      );
+                    }}
+                    className="w-8 h-8 rounded-full border-2 border-white shadow-sm cursor-pointer hover:-translate-y-1 transition-transform overflow-hidden bg-blue-100 flex items-center justify-center text-blue-700 text-xs font-bold focus:outline-none"
+                    title={member.name}
+                  >
+                    {member.avatarUrl ? (
+                      <Image
+                        src={member.avatarUrl}
+                        alt={member.name}
+                        width={32}
+                        height={32}
+                        className="w-full h-full object-cover"
+                        unoptimized
+                      />
+                    ) : (
+                      member.avatar
+                    )}
+                  </button>
+                  {memberPopupId === member.id && (
+                    <div
+                      className="absolute left-0 top-10 z-30 bg-white border border-gray-200 rounded-xl shadow-xl p-4 w-56"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-lg overflow-hidden shrink-0">
+                          {member.avatarUrl ? (
+                            <Image
+                              src={member.avatarUrl}
+                              alt={member.name}
+                              width={48}
+                              height={48}
+                              className="w-full h-full object-cover"
+                              unoptimized
+                            />
+                          ) : (
+                            member.avatar
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-gray-900 truncate">
+                            {member.name}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {member.role}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5 text-xs text-gray-600">
+                        {member.email && (
+                          <div className="flex items-center gap-1.5 truncate">
+                            <span className="text-gray-400 shrink-0">✉</span>
+                            <span className="truncate">{member.email}</span>
+                          </div>
+                        )}
+                        {member.empNo && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-gray-400 shrink-0">#</span>
+                            <span>{member.empNo}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
+              {members.length > 3 && (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMemberPopupId(null);
+                      setShowAllMembersPopup((prev) => !prev);
+                    }}
+                    className="w-8 h-8 rounded-full border-2 border-white shadow-sm bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-600 cursor-pointer transition-colors focus:outline-none"
+                  >
+                    +{members.length - 3}
+                  </button>
+                  {showAllMembersPopup && (
+                    <div
+                      className="absolute right-0 top-10 z-30 bg-white border border-gray-200 rounded-xl shadow-xl w-72 max-h-96 overflow-y-auto"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center">
+                        <span className="text-sm font-semibold text-gray-800">
+                          สมาชิกทั้งหมด ({members.length} คน)
+                        </span>
+                        <button
+                          onClick={() => setShowAllMembersPopup(false)}
+                          className="text-gray-400 hover:text-gray-600"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div className="divide-y divide-gray-50">
+                        {members.map((member) => (
+                          <div
+                            key={member.id}
+                            className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
+                          >
+                            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm overflow-hidden shrink-0">
+                              {member.avatarUrl ? (
+                                <Image
+                                  src={member.avatarUrl}
+                                  alt={member.name}
+                                  width={40}
+                                  height={40}
+                                  className="w-full h-full object-cover"
+                                  unoptimized
+                                />
+                              ) : (
+                                member.avatar
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm font-medium text-gray-900 truncate">
+                                {member.name}
+                              </div>
+                              <div className="text-xs text-gray-500 flex items-center gap-2 flex-wrap">
+                                <span className="px-1.5 py-0.5 bg-gray-100 rounded text-[10px]">
+                                  {member.role}
+                                </span>
+                                {member.empNo && <span># {member.empNo}</span>}
+                                {member.email && (
+                                  <span className="truncate">
+                                    {member.email}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <button
               onClick={() => setIsInviteModalOpen(true)}
@@ -427,7 +699,7 @@ export default function KanbanBoard({
           return (
             <div
               key={col.id}
-              className="shrink-0 w-80 rounded-xl p-4 flex flex-col max-h-full border border-gray-100"
+              className="shrink-0 w-80 rounded-xl p-4 flex flex-col max-h-full border border-gray-100 min-h-full"
               style={{
                 backgroundColor: `${col.color}1A`,
               }} /* 1A is 10% opacity in hex */
@@ -469,13 +741,49 @@ export default function KanbanBoard({
                     </button>
                   )}
                   {index !== 0 && index !== columns.length - 1 && (
-                    <button
-                      className="text-gray-400 hover:text-red-500 transition-colors p-1 ml-1"
-                      onClick={() => handleDeleteColumn(col.id)}
-                      title="ลบคอลัมน์"
-                    >
-                      <MoreHorizontal className="w-4 h-4" />
-                    </button>
+                    <div className="relative">
+                      <button
+                        className="text-gray-400 hover:text-gray-600 transition-colors p-1 ml-1 rounded hover:bg-white/60"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenColMenuId((prev) =>
+                            prev === col.id ? null : col.id,
+                          );
+                        }}
+                        title="ตัวเลือกคอลัมน์"
+                      >
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
+                      {openColMenuId === col.id && (
+                        <div
+                          className="absolute right-0 mt-1 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                            onClick={() => {
+                              setRenamingCol({ id: col.id, title: col.title });
+                              setRenameValue(col.title);
+                              setOpenColMenuId(null);
+                            }}
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                            เปลี่ยนชื่อ
+                          </button>
+                          <div className="mx-2 my-1 border-t border-gray-100" />
+                          <button
+                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                            onClick={() => {
+                              setOpenColMenuId(null);
+                              handleDeleteColumn(col.id);
+                            }}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            ลบคอลัมน์
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
@@ -516,12 +824,25 @@ export default function KanbanBoard({
                         <MessageSquare className="w-3.5 h-3.5" />
                         <span className="text-xs">{task.comments || 0}</span>
                       </div>
-                      <div
-                        title={`Assignee: ${task.assignee}`}
-                        className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-bold text-blue-700 border border-white shadow-sm ring-1 ring-gray-100"
-                      >
-                        {task.assignee}
-                      </div>
+                      {(() => {
+                        const assignees = getTaskAssignees(task);
+                        const primary = assignees[0];
+                        return (
+                          <div className="flex items-center gap-1">
+                            <div
+                              title={assignees.map((a) => a.name).join(", ")}
+                              className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-bold text-blue-700 border border-white shadow-sm ring-1 ring-gray-100"
+                            >
+                              {primary?.avatar || "U"}
+                            </div>
+                            {assignees.length > 1 && (
+                              <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded-full">
+                                +{assignees.length - 1}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 ))}
@@ -537,6 +858,52 @@ export default function KanbanBoard({
           );
         })}
       </div>
+
+      {/* Rename Column Modal */}
+      {renamingCol && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-xs overflow-hidden">
+            <div className="flex justify-between items-center p-5 border-b border-gray-100">
+              <h2 className="text-base font-bold text-gray-900">
+                เปลี่ยนชื่อคอลัมน์
+              </h2>
+              <button
+                onClick={() => setRenamingCol(null)}
+                className="text-gray-400 hover:text-gray-600 p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <input
+                type="text"
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleRenameColumn();
+                  if (e.key === "Escape") setRenamingCol(null);
+                }}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                autoFocus
+              />
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => setRenamingCol(null)}
+                  className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  onClick={handleRenameColumn}
+                  className="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+                >
+                  บันทึก
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Invite Member Modal Popup */}
       {isInviteModalOpen && (
@@ -718,7 +1085,7 @@ export default function KanbanBoard({
       {/* Add Task Modal Popup */}
       {isTaskModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden relative flex flex-col max-h-[90vh]">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-6xl overflow-hidden relative flex flex-col max-h-[90vh]">
             <div className="flex justify-between items-center p-5 border-b border-gray-100 shrink-0">
               <h2 className="text-lg font-bold text-gray-900">สร้างงานใหม่</h2>
               <button
@@ -764,17 +1131,32 @@ export default function KanbanBoard({
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     ผู้รับผิดชอบ (Assignee)
                   </label>
-                  <select
-                    value={newTaskAssignee}
-                    onChange={(e) => setNewTaskAssignee(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  >
-                    {members.map((member) => (
-                      <option key={member.id} value={member.avatar}>
-                        {member.name}
-                      </option>
-                    ))}
-                  </select>
+                  <AssigneeCombobox
+                    selectedAssignees={newTaskAssigneeIds.map((id) => {
+                      const member = members.find((m) => m.id === id);
+                      return {
+                        id,
+                        name: member?.name || id,
+                        avatar: member?.avatar || id[0]?.toUpperCase() || "U",
+                        avatarUrl: member?.avatarUrl || "",
+                      };
+                    })}
+                    onAdd={(user) =>
+                      setNewTaskAssigneeIds((prev) =>
+                        prev.includes(user.id) ? prev : [...prev, user.id],
+                      )
+                    }
+                    onRemove={(userId) => {
+                      if (newTaskAssigneeIds.length <= 1) {
+                        alert("ต้องมีผู้รับผิดชอบอย่างน้อย 1 คน");
+                        return;
+                      }
+                      setNewTaskAssigneeIds((prev) =>
+                        prev.filter((id) => id !== userId),
+                      );
+                    }}
+                    minOne
+                  />
                 </div>
               </div>
 
@@ -811,7 +1193,9 @@ export default function KanbanBoard({
               </button>
               <button
                 onClick={handleAddTaskSubmit}
-                disabled={!newTaskTitle.trim()}
+                disabled={
+                  !newTaskTitle.trim() || newTaskAssigneeIds.length === 0
+                }
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
               >
                 สร้างงาน
@@ -824,7 +1208,7 @@ export default function KanbanBoard({
       {/* View Task Modal Popup */}
       {viewTask && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden relative flex flex-col max-h-[90vh]">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-6xl overflow-hidden relative flex flex-col max-h-[90vh]">
             <div className="flex justify-between items-center p-5 border-b border-gray-100 shrink-0">
               <div className="flex items-center gap-3">
                 <span className="px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded">
@@ -872,15 +1256,21 @@ export default function KanbanBoard({
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 mb-1">ผู้รับผิดชอบ</p>
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-bold text-blue-700">
-                      {viewTask.assignee}
-                    </div>
-                    <span className="text-sm font-medium text-gray-900">
-                      {members.find((m) => m.avatar === viewTask.assignee)
-                        ?.name || viewTask.assignee}
-                    </span>
-                  </div>
+                  <AssigneeCombobox
+                    selectedAssignees={getTaskAssignees(viewTask).map((a) => ({
+                      id: a.id,
+                      name: a.name,
+                      avatar: a.avatar,
+                      avatarUrl: a.avatarUrl,
+                    }))}
+                    onAdd={(user) =>
+                      void handleAddAssigneeToTask(viewTask.id, user.id)
+                    }
+                    onRemove={(userId) =>
+                      void handleRemoveAssigneeFromTask(viewTask.id, userId)
+                    }
+                    minOne
+                  />
                 </div>
               </div>
 

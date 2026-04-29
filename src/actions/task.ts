@@ -11,11 +11,15 @@ export async function createTask(data: {
   content: string;
   projectId: string;
   stepId: string;
-  assigneeId?: string;
+  assigneeIds: string[];
   creatorId: string;
   order: number;
 }) {
   try {
+    if (!data.assigneeIds || data.assigneeIds.length === 0) {
+      return { success: false, error: "Task must have at least one assignee" };
+    }
+
     const safeData = {
       ...data,
       title: latin1Safe(data.title, 'Untitled Task'),
@@ -24,7 +28,23 @@ export async function createTask(data: {
     };
 
     const newTask = await prisma.task.create({
-      data: safeData
+      data: {
+        title: safeData.title,
+        type: safeData.type,
+        content: safeData.content,
+        projectId: safeData.projectId,
+        stepId: safeData.stepId,
+        creatorId: safeData.creatorId,
+        order: safeData.order,
+        assignees: {
+          create: safeData.assigneeIds.map((userId) => ({ userId })),
+        },
+      },
+      include: {
+        assignees: {
+          include: { user: true },
+        },
+      },
     });
     revalidatePath(`/projects/${data.projectId}`);
     await publishRealtimeEvent({
@@ -71,5 +91,45 @@ export async function updateTaskDescription(taskId: string, content: string, pro
   } catch (error) {
     console.error("Error updating task description:", error);
     return { success: false };
+  }
+}
+
+export async function updateTaskAssignees(
+  taskId: string,
+  assigneeIds: string[],
+  projectId: string,
+) {
+  try {
+    const uniqueAssigneeIds = [...new Set(assigneeIds)];
+    if (uniqueAssigneeIds.length === 0) {
+      return { success: false, error: "Task must have at least one assignee" };
+    }
+
+    await prisma.$transaction([
+      prisma.taskAssignee.deleteMany({ where: { taskId } }),
+      prisma.taskAssignee.createMany({
+        data: uniqueAssigneeIds.map((userId) => ({ taskId, userId })),
+      }),
+    ]);
+
+    const task = await prisma.task.findUnique({
+      where: { id: taskId },
+      include: {
+        assignees: {
+          include: { user: true },
+        },
+      },
+    });
+
+    revalidatePath(`/projects/${projectId}`);
+    await publishRealtimeEvent({
+      type: 'task.assignees.updated',
+      payload: { projectId, taskId, assigneeIds: uniqueAssigneeIds },
+    });
+
+    return { success: true, task };
+  } catch (error) {
+    console.error("Error updating task assignees:", error);
+    return { success: false, error: "Failed to update task assignees" };
   }
 }

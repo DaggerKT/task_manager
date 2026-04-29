@@ -16,6 +16,7 @@ export interface ProjectItem {
   progress: number;
   members: number;
   dueDate: string | null;
+  canDelete: boolean;
 }
 
 /** A member of a project team */

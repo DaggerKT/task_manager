@@ -14,10 +14,18 @@ export interface Task {
   title: string;
   status: string;
   type: string;
-  assignee: string;
+  assignee?: string;
+  assignees?: TaskAssignee[];
   description: string;
   comments: number;
   commentList: TaskComment[];
+}
+
+export interface TaskAssignee {
+  id: string;
+  name: string;
+  avatar: string;
+  avatarUrl: string;
 }
 
 export interface Column {
@@ -43,6 +51,8 @@ export interface RawTeamMember {
   user?: {
     name?: string | null;
     avatar?: string | null;
+    email?: string | null;
+    empNo?: string | null;
   } | null;
 }
 
@@ -76,7 +86,8 @@ export interface BoardTask {
   status: string;
   type: string;
   title: string;
-  assignee: string;
+  assignee?: string;
+  assignees?: TaskAssignee[];
   description?: string;
   comments?: number;
   commentList?: BoardComment[];
@@ -89,6 +100,8 @@ export interface BoardMember {
   role: string;
   avatar: string;
   avatarUrl: string;
+  email?: string;
+  empNo?: string;
 }
 
 export interface KanbanBoardProps {

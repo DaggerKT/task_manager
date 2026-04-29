@@ -73,6 +73,7 @@ export default function ProjectsList({
         progress: 0,
         members: 1, // Simulated for now
         dueDate: res.project.dueDate ? new Date(res.project.dueDate).toISOString() : null,
+        canDelete: true,
       };
       setProjects([newProject, ...projects]);
     }
@@ -84,8 +85,12 @@ export default function ProjectsList({
 
   const handleDeleteProject = async (id: string) => {
     if (confirm(t.projects.deleteConfirm)) {
-       setProjects(projects.filter((p) => p.id !== id));
-       await deleteProject(id);
+      const res = await deleteProject(id);
+      if (res.success) {
+        setProjects(projects.filter((p) => p.id !== id));
+      } else {
+        alert(res.error || "ไม่สามารถลบโปรเจคได้");
+      }
     }
   };
   console.log("Rendering ProjectsList with projects:", projects);
@@ -158,35 +163,37 @@ export default function ProjectsList({
                 <div className="p-3 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
                   <FolderGit2 className="w-6 h-6" />
                 </div>
-                <div className="relative">
-                  <button
-                    className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setOpenDropdownId(
-                        openDropdownId === project.id ? null : project.id,
-                      );
-                    }}
-                  >
-                    <MoreVertical className="w-5 h-5" />
-                  </button>
-                  {openDropdownId === project.id && (
-                    <div
-                      className="absolute right-0 mt-2 w-32 bg-white border border-gray-200 rounded-lg shadow-lg z-10"
-                      onClick={(e) => e.preventDefault()}
+                {project.canDelete && (
+                  <div className="relative">
+                    <button
+                      className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setOpenDropdownId(
+                          openDropdownId === project.id ? null : project.id,
+                        );
+                      }}
                     >
-                      <button
-                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50 rounded-lg"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          handleDeleteProject(project.id);
-                        }}
+                      <MoreVertical className="w-5 h-5" />
+                    </button>
+                    {openDropdownId === project.id && (
+                      <div
+                        className="absolute right-0 mt-2 w-32 bg-white border border-gray-200 rounded-lg shadow-lg z-10"
+                        onClick={(e) => e.preventDefault()}
                       >
-                        {t.projects.deleteProject}
-                      </button>
-                    </div>
-                  )}
-                </div>
+                        <button
+                          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50 rounded-lg"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleDeleteProject(project.id);
+                          }}
+                        >
+                          {t.projects.deleteProject}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <h3 className="text-lg font-bold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">

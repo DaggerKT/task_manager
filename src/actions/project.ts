@@ -30,6 +30,10 @@ export async function getProjects() {
       include: {
         team: {
           include: {
+            members: {
+              where: { userId },
+              select: { role: true },
+            },
             _count: {
               select: { members: true },
             },
@@ -125,8 +129,35 @@ export async function createProject(name: string, dueDate: string | null) {
 
 export async function deleteProject(id: string) {
   try {
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return { success: false, error: "Unauthorized. Please login again." };
+    }
+
+    const project = await prisma.project.findFirst({
+      where: {
+        id,
+        team: {
+          members: {
+            some: {
+              userId,
+              role: "ADMIN",
+            },
+          },
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!project) {
+      return {
+        success: false,
+        error: "Forbidden. Only project owners/admins can delete this project.",
+      };
+    }
+
     await prisma.project.delete({
-      where: { id },
+      where: { id: project.id },
     });
     revalidatePath("/projects");
     await publishRealtimeEvent({
@@ -175,7 +206,9 @@ export async function getProjectData(projectId: string) {
     const tasks = await prisma.task.findMany({
       where: { projectId },
       include: {
-        assignee: true,
+        assignees: {
+          include: { user: true },
+        },
         comments: {
           include: { user: true },
           orderBy: { createdAt: "asc" },

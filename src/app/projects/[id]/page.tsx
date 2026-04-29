@@ -17,7 +17,12 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     title: t.title,
     status: t.stepId,
     type: t.type,
-    assignee: t.assignee?.name?.[0] || 'U', // First letter of Name as avatar
+    assignees: (t.assignees || []).map((a) => ({
+      id: a.userId,
+      name: a.user?.name || "Unknown User",
+      avatar: a.user?.name?.[0] || "U",
+      avatarUrl: a.user?.avatar || "",
+    })),
     description: t.content || "",
     comments: t.comments.length,
     commentList: t.comments.map(c => ({

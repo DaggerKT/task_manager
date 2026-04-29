@@ -24,10 +24,10 @@ model User {
   avatar     String?
 
   // Relations
-  teamMembers   TeamMember[]
-  tasksAssigned Task[]       @relation("TaskAssignee")
-  taskComments  Comment[]
-  createdTasks  Task[]       @relation("TaskCreator")
+  teamMembers        TeamMember[]
+  taskAssignments    TaskAssignee[]
+  taskComments       Comment[]
+  createdTasks       Task[]         @relation("TaskCreator")
   invitationsSent Invitation[] @relation("InvitationInviter")
   invitationsReceived Invitation[] @relation("InvitationInvitee")
 
@@ -168,7 +168,6 @@ model Task {
   // Relations
   projectId  String  @map("project_id")
   stepId     String  @map("step_id")
-  assigneeId String? @map("assignee_id")
   creatorId  String  @map("creator_id")
 
   // Subtasks
@@ -178,7 +177,7 @@ model Task {
 
   project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   step     Step      @relation(fields: [stepId], references: [id])
-  assignee User?     @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  assignees TaskAssignee[]
   creator  User      @relation("TaskCreator", fields: [creatorId], references: [id])
   comments Comment[]
 
@@ -187,6 +186,22 @@ model Task {
 
   @@index([id])
   @@map("tasks")
+}
+
+model TaskAssignee {
+  id     String @id @default(uuid())
+  taskId String @map("task_id")
+  userId String @map("user_id")
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([taskId, userId])
+  @@index([taskId])
+  @@index([userId])
+  @@map("task_assignees")
 }
 
 model Comment {

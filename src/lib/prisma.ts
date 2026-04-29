@@ -18,7 +18,10 @@ const cachedClient = globalThis.prismaGlobal;
 const shouldRecreateClient =
   process.env.NODE_ENV !== 'production' &&
   !!cachedClient &&
-  !(cachedClient as unknown as { invitation?: unknown }).invitation;
+  (
+    !(cachedClient as unknown as { invitation?: unknown }).invitation ||
+    !(cachedClient as unknown as { taskAssignee?: unknown }).taskAssignee
+  );
 
 const prisma = shouldRecreateClient
   ? prismaClientSingleton()

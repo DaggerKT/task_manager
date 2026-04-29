@@ -19,6 +19,7 @@ export default async function Page() {
       progress: progress,
       members: p.team?._count?.members || 1, // Simulated via team 
       dueDate: p.dueDate ? p.dueDate.toISOString() : null,
+      canDelete: p.team?.members?.[0]?.role === "ADMIN",
     }
   });
 
