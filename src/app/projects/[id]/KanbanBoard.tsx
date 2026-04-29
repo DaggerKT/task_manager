@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -112,6 +112,10 @@ export default function KanbanBoard({
   const [memberPopupId, setMemberPopupId] = useState<string | null>(null);
   const [showAllMembersPopup, setShowAllMembersPopup] = useState(false);
 
+  // Status dropdown in view task modal
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const statusDropdownRef = useRef<HTMLDivElement>(null);
+
   // Column context menu
   const [openColMenuId, setOpenColMenuId] = useState<string | null>(null);
   const [renamingCol, setRenamingCol] = useState<{
@@ -154,6 +158,21 @@ export default function KanbanBoard({
     document.addEventListener("click", handler);
     return () => document.removeEventListener("click", handler);
   }, [showAllMembersPopup]);
+
+  // Close status dropdown when clicking outside
+  useEffect(() => {
+    if (!statusDropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        statusDropdownRef.current &&
+        !statusDropdownRef.current.contains(e.target as Node)
+      ) {
+        setStatusDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [statusDropdownOpen]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -801,7 +820,7 @@ export default function KanbanBoard({
                       <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-gray-100 text-gray-600">
                         {task.type}
                       </span>
-                      <button
+                      {/* <button
                         onClick={(e) => {
                           e.stopPropagation();
                           if (confirm("คุณแน่ใจหรือไม่ที่จะลบงานนี้?")) {
@@ -812,7 +831,7 @@ export default function KanbanBoard({
                         title="ลบงานนี้"
                       >
                         <MoreHorizontal className="w-4 h-4" />
-                      </button>
+                      </button> */}
                     </div>
 
                     <p className="text-sm font-medium text-gray-800 mb-4">
@@ -1249,9 +1268,81 @@ export default function KanbanBoard({
               <div className="grid grid-cols-2 gap-4 border border-gray-100 bg-gray-50 rounded-xl p-4">
                 <div>
                   <p className="text-xs text-gray-500 mb-1">สถานะปัจจุบัน</p>
-                  <div className="font-medium text-gray-900">
-                    {columns.find((c) => c.id === viewTask.status)?.title ||
-                      viewTask.status}
+                  <div ref={statusDropdownRef} className="relative">
+                    {/* Trigger button */}
+                    <button
+                      type="button"
+                      onClick={() => setStatusDropdownOpen((v) => !v)}
+                      className="w-full flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-900 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                    >
+                      {(() => {
+                        const col = columns.find((c) => c.id === viewTask.status);
+                        return (
+                          <>
+                            <span
+                              className="w-2.5 h-2.5 rounded-full shrink-0"
+                              style={{ backgroundColor: col?.color ?? "#94a3b8" }}
+                            />
+                            <span className="flex-1 text-left truncate">
+                              {col?.title ?? viewTask.status}
+                            </span>
+                            <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                          </>
+                        );
+                      })()}
+                    </button>
+
+                    {/* Dropdown */}
+                    {statusDropdownOpen && (
+                      <div className="absolute z-40 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                        {columns.map((col) => {
+                          const isActive = col.id === viewTask.status;
+                          return (
+                            <button
+                              key={col.id}
+                              type="button"
+                              onClick={async () => {
+                                if (isActive) {
+                                  setStatusDropdownOpen(false);
+                                  return;
+                                }
+                                const updated = { ...viewTask, status: col.id };
+                                setViewTask(updated);
+                                setTasks((prev) =>
+                                  prev.map((t) =>
+                                    t.id === viewTask.id
+                                      ? { ...t, status: col.id }
+                                      : t,
+                                  ),
+                                );
+                                setStatusDropdownOpen(false);
+                                await updateTaskStatus(
+                                  viewTask.id,
+                                  col.id,
+                                  projectId,
+                                );
+                              }}
+                              className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left transition-colors ${
+                                isActive
+                                  ? "bg-blue-50 font-semibold"
+                                  : "hover:bg-gray-50"
+                              }`}
+                            >
+                              <span
+                                className="w-3 h-3 rounded-full shrink-0 shadow-sm"
+                                style={{ backgroundColor: col.color }}
+                              />
+                              <span className="flex-1 truncate text-gray-800">
+                                {col.title}
+                              </span>
+                              {isActive && (
+                                <svg className="w-4 h-4 text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div>
@@ -1293,7 +1384,7 @@ export default function KanbanBoard({
                 </div>
 
                 {isEditingDescription ? (
-                  <div className="border border-gray-300 rounded-lg overflow-hidden [&_.quill]:h-37.5 [&_.ql-container]:border-none [&_.ql-toolbar]:border-none [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-gray-300 flex flex-col mb-4">
+                  <div className="border border-gray-300 rounded-lg overflow-hidden [&_.quill]:h-[57vh] [&_.ql-container]:border-none [&_.ql-toolbar]:border-none [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-gray-300 flex flex-col mb-4">
                     <ReactQuill
                       theme="snow"
                       value={editDescriptionContent}
