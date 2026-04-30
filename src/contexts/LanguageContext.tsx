@@ -4,7 +4,6 @@ import {
   createContext,
   useContext,
   useState,
-  useEffect,
   useCallback,
   type ReactNode,
 } from "react";
@@ -29,14 +28,15 @@ const LanguageContext = createContext<LanguageContextValue>({
 });
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE);
-
-  useEffect(() => {
-    const saved = localStorage.getItem(LOCALE_STORAGE_KEY) as Locale | null;
-    if (saved && (saved === "th" || saved === "en")) {
-      setLocaleState(saved);
+  const [locale, setLocaleState] = useState<Locale>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(LOCALE_STORAGE_KEY) as Locale | null;
+      if (saved && (saved === "th" || saved === "en")) {
+        return saved;
+      }
     }
-  }, []);
+    return DEFAULT_LOCALE;
+  });
 
   const setLocale = useCallback((newLocale: Locale) => {
     setLocaleState(newLocale);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Check, X, Bell } from "lucide-react";
 import { getMyInvitations, respondToInvitation } from "@/actions/invitation";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -13,7 +13,7 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const loadInvitations = async () => {
+  const loadInvitations = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -25,7 +25,7 @@ export default function NotificationsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [t.notifications.loadError]);
 
   useEffect(() => {
     void loadInvitations();
@@ -46,7 +46,7 @@ export default function NotificationsPage() {
       window.clearInterval(intervalId);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, []);
+  }, [loadInvitations]);
 
   const handleRespond = async (
     invitationId: string,
