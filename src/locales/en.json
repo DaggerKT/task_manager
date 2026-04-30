@@ -70,6 +70,7 @@
     "createTask": "Create Task",
     "renameColumn": "Rename Column",
     "deleteColumn": "Delete Column",
+    "columnName": "Column Name",
     "modal": {
       "title": "Create New Project",
       "nameLabel": "Project Name",
