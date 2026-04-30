@@ -22,7 +22,6 @@ export default function LoginPage() {
 
       if (data.status && data.accessToken) {
         const userInfoRes = await fetchUserInfo(data.accessToken);
-        console.log("Fetched user info:", userInfoRes);
 
         if (!userInfoRes?.status || !userInfoRes?.empData) {
           setError("ไม่สามารถดึงข้อมูลผู้ใช้ได้ กรุณาลองใหม่อีกครั้ง");
@@ -30,7 +29,6 @@ export default function LoginPage() {
         }
 
         if (userInfoRes.status && userInfoRes.empData) {
-          console.log("User info data to sync:", userInfoRes.empData);
           const syncRes = await syncUserToDatabase(userInfoRes.empData);
           if (syncRes.status !== "success") {
             setError("ไม่สามารถเตรียมข้อมูลผู้ใช้สำหรับเข้าใช้งานได้");

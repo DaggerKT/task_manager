@@ -57,7 +57,6 @@ export async function getProjects() {
 
 export async function createProject(name: string, dueDate: string | null) {
   try {
-    console.log("Creating project with name:", name, "and dueDate:", dueDate);
     const userId = await getCurrentUserId();
     if (!userId) {
       return { success: false, error: "Unauthorized. Please login again." };

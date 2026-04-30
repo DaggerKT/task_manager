@@ -44,6 +44,7 @@ import type {
   BoardMember,
   KanbanBoardProps,
 } from "@/types/kanban";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function KanbanBoard({
   initialProject,
@@ -54,6 +55,7 @@ export default function KanbanBoard({
   const params = useParams();
   const router = useRouter();
   const projectId = params.id as string;
+  const { t } = useLanguage();
 
   const members: BoardMember[] =
     initialProject?.team?.members?.map((m) => ({
@@ -75,6 +77,8 @@ export default function KanbanBoard({
     avatar: "U",
     avatarUrl: "",
   };
+
+  const teamMemberIds = members.map((member) => member.id).filter(Boolean);
 
   // Initialize with DB actual items directly
   const [columns, setColumns] = useState<BoardColumn[]>(initialSteps);
@@ -209,7 +213,7 @@ export default function KanbanBoard({
   const handleAddComment = async () => {
     if (!newComment.trim() || !viewTask) return;
     if (!currentUserId) {
-      alert("กรุณาเข้าสู่ระบบใหม่อีกครั้ง");
+      alert(t.kanban.pleaseLogin);
       return;
     }
 
@@ -248,11 +252,11 @@ export default function KanbanBoard({
   const handleAddTaskSubmit = async () => {
     if (!newTaskTitle.trim()) return;
     if (newTaskAssigneeIds.length === 0) {
-      alert("ต้องมีผู้รับผิดชอบอย่างน้อย 1 คน");
+      alert(t.kanban.minOneAssignee);
       return;
     }
     if (!currentUserId) {
-      alert("กรุณาเข้าสู่ระบบใหม่อีกครั้ง");
+      alert(t.kanban.pleaseLogin);
       return;
     }
 
@@ -364,17 +368,6 @@ export default function KanbanBoard({
     const col1 = newColumns[index];
     const col2 = newColumns[newIndex];
 
-    console.log(
-      "Updating column order on server:",
-      col1.id,
-      col1.title,
-      index,
-      "and",
-      col2.id,
-      col2.title,
-      newIndex,
-    );
-
     await Promise.all([
       updateStep(col1.id, col1.title, col1.color, index),
       updateStep(col2.id, col2.title, col2.color, newIndex),
@@ -382,10 +375,9 @@ export default function KanbanBoard({
   };
 
   const handleDeleteColumn = (id: string) => {
-    // ป้องกันการลบถ้ามีงานค้างอยู่ (ในของจริงควรมีการย้ายงานหรือยืนยันก่อน)
     const hasTasks = tasks.some((t) => t.status === id);
     if (hasTasks) {
-      alert("ไม่สามารถลบคอลัมน์นี้ได้เพราะยังมีงานอยู่");
+      alert(t.kanban.cannotDeleteColumn);
       return;
     }
     setColumns(columns.filter((col) => col.id !== id));
@@ -442,11 +434,11 @@ export default function KanbanBoard({
 
     const res = await createInvitation(initialProject.teamId, projectId, input);
     if (!res.success) {
-      setInviteError(res.error || "ไม่สามารถส่งคำเชิญได้");
+      setInviteError(res.error || t.kanban.inviteFailed);
       return;
     }
 
-    setInviteSuccess("ส่งคำเชิญเรียบร้อยแล้ว");
+    setInviteSuccess(t.kanban.inviteSuccess);
     setInviteIdentifier("");
   };
 
@@ -468,13 +460,18 @@ export default function KanbanBoard({
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
 
+    if (!teamMemberIds.includes(userId)) {
+      alert(t.kanban.assigneeTeamOnly);
+      return;
+    }
+
     const current = getTaskAssignees(task);
     if (current.some((a) => a.id === userId)) return;
 
     const nextIds = [...current.map((a) => a.id), userId];
     const res = await updateTaskAssignees(taskId, nextIds, projectId);
     if (!res.success) {
-      alert(res.error || "ไม่สามารถเพิ่มผู้รับผิดชอบได้");
+      alert(res.error || t.kanban.addAssigneeFailed);
       return;
     }
 
@@ -496,14 +493,14 @@ export default function KanbanBoard({
 
     const current = getTaskAssignees(task);
     if (current.length <= 1) {
-      alert("ต้องมีผู้รับผิดชอบอย่างน้อย 1 คน");
+      alert(t.kanban.minOneAssignee);
       return;
     }
 
     const nextIds = current.map((a) => a.id).filter((id) => id !== userId);
     const res = await updateTaskAssignees(taskId, nextIds, projectId);
     if (!res.success) {
-      alert(res.error || "ไม่สามารถลบผู้รับผิดชอบได้");
+      alert(res.error || t.kanban.removeAssigneeFailed);
       return;
     }
 
@@ -629,7 +626,7 @@ export default function KanbanBoard({
                     >
                       <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center">
                         <span className="text-sm font-semibold text-gray-800">
-                          สมาชิกทั้งหมด ({members.length} คน)
+                          {t.kanban.allMembers} ({members.length} {t.kanban.people})
                         </span>
                         <button
                           onClick={() => setShowAllMembersPopup(false)}
@@ -684,7 +681,7 @@ export default function KanbanBoard({
             </div>
             <button
               onClick={() => setIsInviteModalOpen(true)}
-              title="เพิ่มสมาชิก"
+              title={t.kanban.addMember}
               className="w-8 h-8 rounded-full border border-dashed border-gray-300 flex items-center justify-center text-gray-400 hover:text-blue-600 hover:border-blue-400 transition-colors bg-white shadow-sm"
             >
               <Plus className="w-4 h-4" />
@@ -698,7 +695,7 @@ export default function KanbanBoard({
             className="flex items-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
           >
             <Plus className="w-4 h-4" />
-            เพิ่มขั้นตอน
+            {t.projects.addStep}
           </button>
 
           <button
@@ -706,7 +703,7 @@ export default function KanbanBoard({
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
           >
             <Plus className="w-4 h-4" />
-            สร้างงาน
+            {t.projects.createTask}
           </button>
         </div>
       </div>
@@ -745,7 +742,7 @@ export default function KanbanBoard({
                     <button
                       className="text-gray-400 hover:text-blue-600 transition-colors p-1"
                       onClick={() => handleMoveColumn(index, "left")}
-                      title="เลื่อนซ้าย"
+                      title={t.kanban.moveLeft}
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
@@ -754,7 +751,7 @@ export default function KanbanBoard({
                     <button
                       className="text-gray-400 hover:text-blue-600 transition-colors p-1"
                       onClick={() => handleMoveColumn(index, "right")}
-                      title="เลื่อนขวา"
+                      title={t.kanban.moveRight}
                     >
                       <ChevronRight className="w-4 h-4" />
                     </button>
@@ -769,7 +766,7 @@ export default function KanbanBoard({
                             prev === col.id ? null : col.id,
                           );
                         }}
-                        title="ตัวเลือกคอลัมน์"
+                        title={t.kanban.columnOptions}
                       >
                         <MoreHorizontal className="w-4 h-4" />
                       </button>
@@ -787,7 +784,7 @@ export default function KanbanBoard({
                             }}
                           >
                             <Pencil className="w-3.5 h-3.5" />
-                            เปลี่ยนชื่อ
+                            {t.projects.renameColumn}
                           </button>
                           <div className="mx-2 my-1 border-t border-gray-100" />
                           <button
@@ -798,7 +795,7 @@ export default function KanbanBoard({
                             }}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
-                            ลบคอลัมน์
+                            {t.projects.deleteColumn}
                           </button>
                         </div>
                       )}
@@ -869,7 +866,7 @@ export default function KanbanBoard({
                 {/* Empty State visual drop target */}
                 {columnTasks.length === 0 && (
                   <div className="h-full min-h-25 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center text-gray-400 text-sm">
-                    ลากงานมาวางที่นี่
+                    {t.kanban.dropHere}
                   </div>
                 )}
               </div>
@@ -884,7 +881,7 @@ export default function KanbanBoard({
           <div className="bg-white rounded-xl shadow-xl w-full max-w-xs overflow-hidden">
             <div className="flex justify-between items-center p-5 border-b border-gray-100">
               <h2 className="text-base font-bold text-gray-900">
-                เปลี่ยนชื่อคอลัมน์
+                {t.projects.renameColumn}
               </h2>
               <button
                 onClick={() => setRenamingCol(null)}
@@ -910,13 +907,13 @@ export default function KanbanBoard({
                   onClick={() => setRenamingCol(null)}
                   className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
                 >
-                  ยกเลิก
+                  {t.common.cancel}
                 </button>
                 <button
                   onClick={handleRenameColumn}
                   className="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700"
                 >
-                  บันทึก
+                  {t.common.save}
                 </button>
               </div>
             </div>
@@ -929,7 +926,7 @@ export default function KanbanBoard({
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden relative">
             <div className="flex justify-between items-center p-5 border-b border-gray-100">
-              <h2 className="text-lg font-bold text-gray-900">เชิญสมาชิก</h2>
+              <h2 className="text-lg font-bold text-gray-900">{t.kanban.inviteMember}</h2>
               <button
                 onClick={() => {
                   setIsInviteModalOpen(false);
@@ -945,11 +942,11 @@ export default function KanbanBoard({
 
             <div className="p-6 space-y-4">
               <p className="text-sm text-gray-500">
-                ใส่ username, รหัสพนักงาน หรือ email ของสมาชิกที่ต้องการเชิญ
+                {t.kanban.inviteHint}
               </p>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  ข้อมูลผู้รับเชิญ
+                  {t.kanban.inviteeInfo}
                 </label>
                 <input
                   type="text"
@@ -960,7 +957,7 @@ export default function KanbanBoard({
                       void handleInviteMember();
                     }
                   }}
-                  placeholder="เช่น user_name หรือ 100001193 หรือ user@example.com"
+                  placeholder={t.kanban.invitePlaceholder}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   autoFocus
                 />
@@ -983,14 +980,14 @@ export default function KanbanBoard({
                 }}
                 className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
               >
-                ยกเลิก
+                {t.common.cancel}
               </button>
               <button
                 onClick={() => void handleInviteMember()}
                 disabled={!inviteIdentifier.trim()}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
               >
-                เชิญ
+                {t.kanban.invite}
               </button>
             </div>
           </div>
@@ -1003,7 +1000,7 @@ export default function KanbanBoard({
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden relative">
             <div className="flex justify-between items-center p-5 border-b border-gray-100">
               <h2 className="text-lg font-bold text-gray-900">
-                เพิ่มขั้นตอนใหม่
+                {t.projects.addStep}
               </h2>
               <button
                 onClick={() => setIsAddModalOpen(false)}
@@ -1016,7 +1013,7 @@ export default function KanbanBoard({
             <div className="p-6 space-y-5">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  ชื่อขั้นตอน
+                  {t.projects.columnName}
                 </label>
                 <input
                   type="text"
@@ -1029,7 +1026,7 @@ export default function KanbanBoard({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  เลือกสัญลักษณ์สี หรือกำหนดเอง
+                  {t.kanban.colorPickerLabel}
                 </label>
                 <div className="flex gap-3 items-center flex-wrap">
                   {COLOR_OPTIONS.map((color) => (
@@ -1049,11 +1046,11 @@ export default function KanbanBoard({
                         value={newColColor}
                         onChange={(e) => setNewColColor(e.target.value)}
                         className="absolute -top-3 -left-3 w-14 h-14 cursor-pointer border-0 p-0"
-                        title="เลือกสีเอง"
+                        title={t.kanban.customColor}
                       />
                     </div>
                     <span className="text-xs text-gray-500 font-medium">
-                      สีปัจจุบัน:{" "}
+                      {t.kanban.currentColor}:{" "}
                       <span className="uppercase">{newColColor}</span>
                     </span>
                   </div>
@@ -1062,7 +1059,7 @@ export default function KanbanBoard({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  ตำแหน่ง (ต้องการให้อยู่หลังช่องไหน)
+                  {t.kanban.positionLabel}
                 </label>
                 <select
                   value={insertAfterId}
@@ -1076,8 +1073,7 @@ export default function KanbanBoard({
                   ))}
                 </select>
                 <p className="text-xs text-gray-500 mt-2">
-                  * จะถูกแทรกไว้ตรงกลาง ไม่สามารถไปอยู่หลัง
-                  &quot;เสร็จสิ้น&quot; ได้
+                  {t.kanban.positionNote}
                 </p>
               </div>
             </div>
@@ -1087,14 +1083,14 @@ export default function KanbanBoard({
                 onClick={() => setIsAddModalOpen(false)}
                 className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
               >
-                ยกเลิก
+                {t.common.cancel}
               </button>
               <button
                 onClick={handleAddColumnSubmit}
                 disabled={!newColTitle.trim()}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
               >
-                ตกลง
+                {t.kanban.ok}
               </button>
             </div>
           </div>
@@ -1106,7 +1102,7 @@ export default function KanbanBoard({
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-6xl overflow-hidden relative flex flex-col max-h-[90vh]">
             <div className="flex justify-between items-center p-5 border-b border-gray-100 shrink-0">
-              <h2 className="text-lg font-bold text-gray-900">สร้างงานใหม่</h2>
+              <h2 className="text-lg font-bold text-gray-900">{t.kanban.createNewTask}</h2>
               <button
                 onClick={() => setIsTaskModalOpen(false)}
                 className="text-gray-400 hover:text-gray-600 p-1"
@@ -1118,13 +1114,13 @@ export default function KanbanBoard({
             <div className="p-6 space-y-5 overflow-y-auto flex-1">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  ชื่องาน (Task Title) <span className="text-red-500">*</span>
+                  {t.kanban.taskTitleLabel} <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={newTaskTitle}
                   onChange={(e) => setNewTaskTitle(e.target.value)}
-                  placeholder="เช่น ออกแบบหน้า Login..."
+                  placeholder={t.kanban.taskTitlePlaceholder}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -1132,7 +1128,7 @@ export default function KanbanBoard({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    ประเภทงาน (Type)
+                    {t.kanban.taskTypeLabel}
                   </label>
                   <select
                     value={newTaskType}
@@ -1143,12 +1139,12 @@ export default function KanbanBoard({
                     <option value="Backend">Backend</option>
                     <option value="Design">Design</option>
                     <option value="QA">QA</option>
-                    <option value="General">ทั่วไป (General)</option>
+                    <option value="General">{t.kanban.taskTypeGeneral}</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    ผู้รับผิดชอบ (Assignee)
+                    {t.kanban.assigneeLabel}
                   </label>
                   <AssigneeCombobox
                     selectedAssignees={newTaskAssigneeIds.map((id) => {
@@ -1162,12 +1158,15 @@ export default function KanbanBoard({
                     })}
                     onAdd={(user) =>
                       setNewTaskAssigneeIds((prev) =>
-                        prev.includes(user.id) ? prev : [...prev, user.id],
+                        prev.includes(user.id) ||
+                        !teamMemberIds.includes(user.id)
+                          ? prev
+                          : [...prev, user.id],
                       )
                     }
                     onRemove={(userId) => {
                       if (newTaskAssigneeIds.length <= 1) {
-                        alert("ต้องมีผู้รับผิดชอบอย่างน้อย 1 คน");
+                        alert(t.kanban.minOneAssignee);
                         return;
                       }
                       setNewTaskAssigneeIds((prev) =>
@@ -1175,20 +1174,21 @@ export default function KanbanBoard({
                       );
                     }}
                     minOne
+                    allowedUserIds={teamMemberIds}
                   />
                 </div>
               </div>
 
               <div className="flex-1 flex flex-col min-h-62.5">
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  รายละเอียด (Description - รองรับรูปภาพ)
+                  {t.kanban.descriptionLabel}
                 </label>
                 <div className="flex-1 border border-gray-300 rounded-lg overflow-hidden [&_.quill]:h-50 [&_.ql-container]:border-none [&_.ql-toolbar]:border-none [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-gray-300">
                   <ReactQuill
                     theme="snow"
                     value={newTaskDescription}
                     onChange={setNewTaskDescription}
-                    placeholder="พิมพ์รายละเอียดงาน วางภาพ หรือจัดรูปแบบได้ตามต้องการ..."
+                    placeholder={t.kanban.descriptionPlaceholder}
                     modules={{
                       toolbar: [
                         [{ header: [1, 2, 3, false] }],
@@ -1208,7 +1208,7 @@ export default function KanbanBoard({
                 onClick={() => setIsTaskModalOpen(false)}
                 className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
               >
-                ยกเลิก
+                {t.common.cancel}
               </button>
               <button
                 onClick={handleAddTaskSubmit}
@@ -1238,7 +1238,7 @@ export default function KanbanBoard({
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
-                    if (confirm("คุณแน่ใจหรือไม่ที่จะลบงานนี้?")) {
+                    if (confirm(t.kanban.deleteTaskConfirm)) {
                       setTasks(tasks.filter((t) => t.id !== viewTask.id));
                       setViewTask(null);
                       setIsEditingDescription(false);
@@ -1246,7 +1246,7 @@ export default function KanbanBoard({
                   }}
                   className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium"
                 >
-                  ลบงาน
+                  {t.kanban.deleteTask}
                 </button>
                 <button
                   onClick={() => {
@@ -1267,7 +1267,7 @@ export default function KanbanBoard({
 
               <div className="grid grid-cols-2 gap-4 border border-gray-100 bg-gray-50 rounded-xl p-4">
                 <div>
-                  <p className="text-xs text-gray-500 mb-1">สถานะปัจจุบัน</p>
+                  <p className="text-xs text-gray-500 mb-1">{t.kanban.currentStatus}</p>
                   <div ref={statusDropdownRef} className="relative">
                     {/* Trigger button */}
                     <button
@@ -1276,17 +1276,33 @@ export default function KanbanBoard({
                       className="w-full flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-900 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
                     >
                       {(() => {
-                        const col = columns.find((c) => c.id === viewTask.status);
+                        const col = columns.find(
+                          (c) => c.id === viewTask.status,
+                        );
                         return (
                           <>
                             <span
                               className="w-2.5 h-2.5 rounded-full shrink-0"
-                              style={{ backgroundColor: col?.color ?? "#94a3b8" }}
+                              style={{
+                                backgroundColor: col?.color ?? "#94a3b8",
+                              }}
                             />
                             <span className="flex-1 text-left truncate">
                               {col?.title ?? viewTask.status}
                             </span>
-                            <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                            <svg
+                              className="w-4 h-4 text-gray-400 shrink-0"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 9l-7 7-7-7"
+                              />
+                            </svg>
                           </>
                         );
                       })()}
@@ -1336,7 +1352,19 @@ export default function KanbanBoard({
                                 {col.title}
                               </span>
                               {isActive && (
-                                <svg className="w-4 h-4 text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                                <svg
+                                  className="w-4 h-4 text-blue-500 shrink-0"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2.5}
+                                    d="M5 13l4 4L19 7"
+                                  />
+                                </svg>
                               )}
                             </button>
                           );
@@ -1346,7 +1374,7 @@ export default function KanbanBoard({
                   </div>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 mb-1">ผู้รับผิดชอบ</p>
+                  <p className="text-xs text-gray-500 mb-1">{t.kanban.assignee}</p>
                   <AssigneeCombobox
                     selectedAssignees={getTaskAssignees(viewTask).map((a) => ({
                       id: a.id,
@@ -1361,12 +1389,13 @@ export default function KanbanBoard({
                       void handleRemoveAssigneeFromTask(viewTask.id, userId)
                     }
                     minOne
+                    allowedUserIds={teamMemberIds}
                   />
                 </div>
 
                 {/* Creator — read-only, spans full width */}
                 <div className="col-span-2 pt-2 border-t border-gray-100">
-                  <p className="text-xs text-gray-500 mb-1.5">สร้างโดย</p>
+                  <p className="text-xs text-gray-500 mb-1.5">{t.kanban.createdBy}</p>
                   <div className="flex items-center gap-2.5">
                     <div className="w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center text-[11px] font-bold text-purple-700 shrink-0 overflow-hidden">
                       {viewTask.creatorAvatarUrl ? (
@@ -1379,14 +1408,15 @@ export default function KanbanBoard({
                           unoptimized
                         />
                       ) : (
-                        (viewTask.creatorName as string)?.[0]?.toUpperCase() ?? "?"
+                        ((viewTask.creatorName as string)?.[0]?.toUpperCase() ??
+                        "?")
                       )}
                     </div>
                     <span className="text-sm font-medium text-gray-800">
-                      {(viewTask.creatorName as string) || "ไม่ทราบ"}
+                      {(viewTask.creatorName as string) || t.kanban.unknown}
                     </span>
                     <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
-                      ผู้สร้าง
+                      {t.kanban.creator}
                     </span>
                   </div>
                 </div>
@@ -1395,7 +1425,7 @@ export default function KanbanBoard({
               <div className="flex flex-col">
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="text-sm font-semibold text-gray-800">
-                    รายละเอียด (Description)
+                    {t.kanban.descriptionSection}
                   </h3>
                   {!isEditingDescription && (
                     <button
@@ -1405,7 +1435,7 @@ export default function KanbanBoard({
                       }}
                       className="text-xs text-blue-600 hover:text-blue-800 hover:underline font-medium px-2 py-1 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
                     >
-                      แก้ไขรายละเอียด
+                      {t.kanban.editDescription}
                     </button>
                   )}
                 </div>
@@ -1416,7 +1446,7 @@ export default function KanbanBoard({
                       theme="snow"
                       value={editDescriptionContent}
                       onChange={setEditDescriptionContent}
-                      placeholder="พิมพ์รายละเอียดงาน วางภาพ หรือจัดรูปแบบได้ตามต้องการ..."
+                      placeholder={t.kanban.descriptionPlaceholder}
                       modules={{
                         toolbar: [
                           [{ header: [1, 2, 3, false] }],
@@ -1432,13 +1462,13 @@ export default function KanbanBoard({
                         onClick={() => setIsEditingDescription(false)}
                         className="px-4 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
                       >
-                        ยกเลิก
+                        {t.common.cancel}
                       </button>
                       <button
                         onClick={handleSaveDescription}
                         className="px-4 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
                       >
-                        บันทึก
+                        {t.common.save}
                       </button>
                     </div>
                   </div>
@@ -1450,14 +1480,14 @@ export default function KanbanBoard({
                   />
                 ) : (
                   <div className="text-gray-400 italic text-sm bg-gray-50 border border-dashed border-gray-200 p-4 rounded-lg text-center">
-                    ไม่มีรายละเอียดงาน...
+                    {t.kanban.noDescription}
                   </div>
                 )}
               </div>
 
               <div className="pt-4 border-t border-gray-100">
                 <h3 className="text-sm font-semibold text-gray-800 mb-3">
-                  ความคิดเห็น ({viewTask.comments || 0})
+                  {t.kanban.comments} ({viewTask.comments || 0})
                 </h3>
                 <div className="space-y-3 mb-4">
                   {(viewTask.commentList || []).map((comment: BoardComment) => (
@@ -1495,7 +1525,7 @@ export default function KanbanBoard({
                   {(!viewTask.commentList ||
                     viewTask.commentList.length === 0) && (
                     <div className="text-center text-sm text-gray-400 py-4 bg-gray-50 rounded-lg border border-dashed border-gray-200">
-                      ยังไม่มีความคิดเห็น... เริ่มพูดคุยเลย
+                      {t.kanban.noComments}
                     </div>
                   )}
                 </div>
@@ -1521,7 +1551,7 @@ export default function KanbanBoard({
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && handleAddComment()}
-                      placeholder="พิมพ์ความคิดเห็น หรืออัปเดตความคืบหน้า..."
+                      placeholder={t.kanban.commentPlaceholder}
                       className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <button
@@ -1529,7 +1559,7 @@ export default function KanbanBoard({
                       disabled={!newComment.trim()}
                       className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
-                      ส่ง
+                      {t.kanban.send}
                     </button>
                   </div>
                 </div>
@@ -1544,7 +1574,7 @@ export default function KanbanBoard({
                 }}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors rounded-lg"
               >
-                ปิดหน้าต่าง
+                {t.kanban.close}
               </button>
             </div>
           </div>

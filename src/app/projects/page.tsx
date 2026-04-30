@@ -4,8 +4,6 @@ import { getProjects } from "@/actions/project";
 export default async function Page() {
   const rawProjects = await getProjects();
 
-  console.log("Raw projects data:", rawProjects);
-
   const formattedProjects = rawProjects.map(p => {
     // Quick progress calculation
     const totalTasks = p._count?.tasks || 0;

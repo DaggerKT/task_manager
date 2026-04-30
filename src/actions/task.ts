@@ -20,6 +20,34 @@ export async function createTask(data: {
       return { success: false, error: "Task must have at least one assignee" };
     }
 
+    const project = await prisma.project.findUnique({
+      where: { id: data.projectId },
+      select: {
+        team: {
+          select: {
+            members: {
+              select: { userId: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!project) {
+      return { success: false, error: "Project not found" };
+    }
+
+    const teamMemberIdSet = new Set(
+      project.team.members.map((member) => member.userId),
+    );
+
+    if (data.assigneeIds.some((userId) => !teamMemberIdSet.has(userId))) {
+      return {
+        success: false,
+        error: "Assignees must be members of this team",
+      };
+    }
+
     const safeData = {
       ...data,
       title: latin1Safe(data.title, 'Untitled Task'),
@@ -103,6 +131,38 @@ export async function updateTaskAssignees(
     const uniqueAssigneeIds = [...new Set(assigneeIds)];
     if (uniqueAssigneeIds.length === 0) {
       return { success: false, error: "Task must have at least one assignee" };
+    }
+
+    const taskScope = await prisma.task.findUnique({
+      where: { id: taskId },
+      select: {
+        project: {
+          select: {
+            team: {
+              select: {
+                members: {
+                  select: { userId: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!taskScope) {
+      return { success: false, error: "Task not found" };
+    }
+
+    const teamMemberIdSet = new Set(
+      taskScope.project.team.members.map((member) => member.userId),
+    );
+
+    if (uniqueAssigneeIds.some((userId) => !teamMemberIdSet.has(userId))) {
+      return {
+        success: false,
+        error: "Assignees must be members of this team",
+      };
     }
 
     await prisma.$transaction([

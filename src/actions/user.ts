@@ -11,17 +11,35 @@ export interface UserSearchResult {
   avatar: string | null;
 }
 
-export async function searchUsers(query: string): Promise<UserSearchResult[]> {
+export async function searchUsers(
+  query: string,
+  allowedUserIds?: string[],
+): Promise<UserSearchResult[]> {
   const q = query.trim();
   if (!q || q.length < 1) return [];
 
+  const normalizedAllowedIds = allowedUserIds
+    ? [...new Set(allowedUserIds.filter(Boolean))]
+    : null;
+
+  if (normalizedAllowedIds && normalizedAllowedIds.length === 0) {
+    return [];
+  }
+
   const users = await prisma.user.findMany({
     where: {
-      OR: [
-        { name: { contains: q, mode: 'insensitive' } },
-        { username: { contains: q, mode: 'insensitive' } },
-        { empNo: { contains: q, mode: 'insensitive' } },
-        { email: { contains: q, mode: 'insensitive' } },
+      AND: [
+        ...(normalizedAllowedIds
+          ? [{ id: { in: normalizedAllowedIds } }]
+          : []),
+        {
+          OR: [
+            { name: { contains: q, mode: 'insensitive' } },
+            { username: { contains: q, mode: 'insensitive' } },
+            { empNo: { contains: q, mode: 'insensitive' } },
+            { email: { contains: q, mode: 'insensitive' } },
+          ],
+        },
       ],
     },
     select: {

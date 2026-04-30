@@ -72,7 +72,9 @@ export default function ProjectsList({
         status: res.project.status,
         progress: 0,
         members: 1, // Simulated for now
-        dueDate: res.project.dueDate ? new Date(res.project.dueDate).toISOString() : null,
+        dueDate: res.project.dueDate
+          ? new Date(res.project.dueDate).toISOString()
+          : null,
         canDelete: true,
       };
       setProjects([newProject, ...projects]);
@@ -93,15 +95,15 @@ export default function ProjectsList({
       }
     }
   };
-  console.log("Rendering ProjectsList with projects:", projects);
+  
   return (
     <div className="space-y-6 pb-10">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{t.projects.title}</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {t.projects.subtitle}
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {t.projects.title}
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">{t.projects.subtitle}</p>
         </div>
         <button
           onClick={() => setIsCreateModalOpen(true)}
@@ -212,7 +214,9 @@ export default function ProjectsList({
 
               <div className="space-y-2">
                 <div className="flex justify-between items-center text-sm">
-                  <span className="font-medium text-gray-700">{t.projects.progress}</span>
+                  <span className="font-medium text-gray-700">
+                    {t.projects.progress}
+                  </span>
                   <span className="text-gray-600">{project.progress}%</span>
                 </div>
                 <div className="w-full bg-gray-100 rounded-full h-2.5">
@@ -275,7 +279,8 @@ export default function ProjectsList({
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t.projects.modal.nameLabel} <span className="text-red-500">*</span>
+                  {t.projects.modal.nameLabel}{" "}
+                  <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"

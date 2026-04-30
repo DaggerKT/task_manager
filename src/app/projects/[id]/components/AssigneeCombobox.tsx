@@ -17,6 +17,7 @@ interface AssigneeComboboxProps {
   onAdd: (user: SelectedAssignee) => void;
   onRemove: (userId: string) => void;
   minOne?: boolean;
+  allowedUserIds?: string[];
 }
 
 export default function AssigneeCombobox({
@@ -24,6 +25,7 @@ export default function AssigneeCombobox({
   onAdd,
   onRemove,
   minOne = true,
+  allowedUserIds,
 }: AssigneeComboboxProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UserSearchResult[]>([]);
@@ -41,14 +43,14 @@ export default function AssigneeCombobox({
       }
       setIsLoading(true);
       try {
-        const data = await searchUsers(q);
+        const data = await searchUsers(q, allowedUserIds);
         setResults(data);
         setIsOpen(true);
       } finally {
         setIsLoading(false);
       }
     },
-    [],
+    [allowedUserIds],
   );
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -145,7 +147,7 @@ export default function AssigneeCombobox({
             onFocus={() => {
               if (results.length > 0) setIsOpen(true);
             }}
-            placeholder="ค้นหาด้วยชื่อ, username, รหัสพนักงาน หรือ email..."
+            placeholder="ค้นหาสมาชิกทีมด้วยชื่อ, username, รหัสพนักงาน หรือ email..."
             className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           {isLoading && (
