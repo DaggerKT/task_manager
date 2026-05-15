@@ -56,10 +56,10 @@ nano .env.production
 | Variable | Value | Purpose |
 |----------|-------|---------|
 | `DATABASE_URL` | `postgresql://user:pass@localhost:5432/...` | Direct server connection |
-| `NEXTAUTH_URL` | `https://todo.sfcinema.com` | HTTPS callback |
+| `NEXTAUTH_URL` | `https://<your-domain.com>` | HTTPS callback |
 | `NEXTAUTH_SECRET` | `<random-string>` | Session signing key |
-| `NEXT_PUBLIC_APP_URL` | `https://todo.sfcinema.com` | Public app URL |
-| `NEXT_PUBLIC_API_URL` | `https://todo.sfcinema.com/api` | Public API URL |
+| `NEXT_PUBLIC_APP_URL` | `https://<your-domain.com>` | Public app URL |
+| `NEXT_PUBLIC_API_URL` | `https://<your-domain.com>/api` | Public API URL |
 | `REALTIME_SERVER_URL` | `ws://localhost:3001` | WebSocket connection |
 | `NODE_ENV` | `production` | Production mode |
 
@@ -115,7 +115,7 @@ pnpm build
 # 3. Start with PM2
 pm2 start ecosystem.config.js
 
-# Access: https://todo.sfcinema.com
+# Access: https://<your-domain.com>
 ```
 
 ---
@@ -157,7 +157,7 @@ git status  # Should NOT show .env files
 NEXTAUTH_SECRET=$(openssl rand -base64 32)
 
 # 2. Set correct URLs (use HTTPS)
-NEXTAUTH_URL=https://todo.sfcinema.com
+NEXTAUTH_URL=https://<your-domain.com>
 
 # 3. Update database URL
 DATABASE_URL=postgresql://prod_user:strong_pass@prod_host:5432/task_manager_prod

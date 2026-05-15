@@ -1,7 +1,7 @@
 import callApi from "@/utils/api";
 
 const API_URL_USER =
-  process.env.API_URL_USER || "https://api.sfcinemacity.com/userapi";
+  process.env.API_URL_USER || "https://<your-api-domain.com>/api/v1";
 
 export async function login(payload: { username: string; password: string }) {
   return await callApi.post(`${API_URL_USER}/Auth`, {

@@ -1,4 +1,4 @@
-# Production Setup Guide for todo.sfcinema.com
+# Production Setup Guide for <your-domain.com>
 
 ## 📋 Prerequisites
 
@@ -9,7 +9,7 @@ Before deployment, ensure you have:
 - Nginx
 - PM2 (for process management)
 - SSL Certificate (Let's Encrypt)
-- Domain: todo.sfcinema.com
+- Domain: <your-domain.com>
 
 ---
 
@@ -23,6 +23,7 @@ nano .env.production
 ```
 
 Required variables:
+
 ```
 DATABASE_URL=postgresql://user:password@localhost:5432/task_manager
 NEXTAUTH_SECRET=<generate: openssl rand -base64 32>
@@ -52,8 +53,8 @@ pnpm exec prisma db seed
 ### 1. **Copy Nginx Configuration**
 
 ```bash
-sudo cp nginx.conf /etc/nginx/sites-available/todo.sfcinema.com
-sudo ln -s /etc/nginx/sites-available/todo.sfcinema.com /etc/nginx/sites-enabled/
+sudo cp nginx.conf /etc/nginx/sites-available/<your-domain.com>
+sudo ln -s /etc/nginx/sites-available/<your-domain.com> /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl restart nginx
 ```
@@ -62,7 +63,7 @@ sudo systemctl restart nginx
 
 ```bash
 # First, comment out HTTPS in nginx.conf, then:
-sudo certbot certonly --standalone -d todo.sfcinema.com -d www.todo.sfcinema.com
+sudo certbot certonly --standalone -d <your-domain.com> -d www.<your-domain.com>
 
 # After getting certificate, uncomment HTTPS in nginx.conf
 sudo nginx -t
@@ -187,7 +188,7 @@ docker run -d \
 chmod +x deploy-prod.sh
 
 # Run deployment
-sudo DOMAIN=todo.sfcinema.com ./deploy-prod.sh
+sudo DOMAIN=<your-domain.com> ./deploy-prod.sh
 ```
 
 ### Manual Deployment
@@ -234,8 +235,8 @@ pm2 logs todo-app --lines 100
 pm2 logs realtime --lines 100
 
 # Nginx logs
-tail -f /var/log/nginx/todo_sfcinemacity_access.log
-tail -f /var/log/nginx/todo_sfcinemacity_error.log
+tail -f /var/log/nginx/task_manager_access.log
+tail -f /var/log/nginx/task_manager_error.log
 ```
 
 ### Performance Monitoring
@@ -316,7 +317,7 @@ sudo certbot certificates
 sudo certbot renew --force-renewal
 
 # Check Nginx SSL config
-openssl s_client -connect todo.sfcinema.com:443
+openssl s_client -connect <your-domain.com>:443
 ```
 
 ---
@@ -324,6 +325,7 @@ openssl s_client -connect todo.sfcinema.com:443
 ## 📞 Support
 
 For issues or questions:
+
 - Check PM2 logs: `pm2 logs`
 - Check Nginx logs: `/var/log/nginx/`
 - Check system logs: `journalctl -xe`
