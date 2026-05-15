@@ -1,27 +1,41 @@
+export const dynamic = 'force-dynamic';
+
 import ProjectsList from "./ProjectsList";
 import { getProjects } from "@/actions/project";
+import type { ProjectMemberAvatar } from "@/types/project";
 
 export default async function Page() {
-  const rawProjects = await getProjects();
+  const { projects: rawProjects, currentUserId } = await getProjects();
 
-  const formattedProjects = rawProjects.map(p => {
-    // Quick progress calculation
+  const formattedProjects = rawProjects.map((p) => {
     const totalTasks = p._count?.tasks || 0;
     const doneTasks = p.tasks?.length || 0;
-    const progress = totalTasks === 0 ? 0 : Math.round((doneTasks / totalTasks) * 100);
+    const progress =
+      totalTasks === 0 ? 0 : Math.round((doneTasks / totalTasks) * 100);
+
+    const allMembers: ProjectMemberAvatar[] =
+      p.team?.members?.map((m) => ({
+        id: m.user.id,
+        name: m.user.name ?? null,
+        avatar: m.user.avatar ?? null,
+      })) ?? [];
+
+    const canDelete =
+      p.team?.members?.some(
+        (m) => m.user.id === currentUserId && m.role === "ADMIN",
+      ) ?? false;
 
     return {
       id: p.id,
       name: p.name,
-      status: p.status, // "Active", "Done", "Planning"
-      progress: progress,
-      members: p.team?._count?.members || 1, // Simulated via team 
+      status: p.status,
+      progress,
+      members: allMembers.length || 1,
+      memberAvatars: allMembers,
       dueDate: p.dueDate ? p.dueDate.toISOString() : null,
-      canDelete: p.team?.members?.[0]?.role === "ADMIN",
-    }
+      canDelete,
+    };
   });
 
-  return (
-    <ProjectsList initialProjects={formattedProjects} />
-  );
+  return <ProjectsList initialProjects={formattedProjects} />;
 }

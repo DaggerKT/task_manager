@@ -26,6 +26,7 @@
     "saveSuccess": "บันทึกการตั้งค่าเรียบร้อยแล้ว"
   },
   "sidebar": {
+    "title": "Task Manager",
     "dashboard": "ภาพรวม (Dashboard)",
     "projects": "โปรเจคของฉัน",
     "notifications": "แจ้งเตือน",
@@ -41,6 +42,7 @@
     "save": "บันทึก",
     "delete": "ลบ",
     "confirm": "ยืนยัน",
+    "clear": "ล้าง",
     "loading": "กำลังโหลด..."
   },
   "dashboard": {
@@ -64,6 +66,7 @@
     "dueDate": "กำหนดส่ง",
     "noDueDate": "ไม่ระบุ",
     "progress": "ความคืบหน้า",
+    "editProject": "แก้ไขโปรเจค",
     "deleteProject": "ลบโปรเจค",
     "deleteConfirm": "คุณแน่ใจหรือไม่ที่จะลบโปรเจคนี้?",
     "addStep": "เพิ่มขั้นตอนใหม่",
@@ -71,30 +74,40 @@
     "renameColumn": "เปลี่ยนชื่อคอลัมน์",
     "deleteColumn": "ลบคอลัมน์",
     "columnName": "ชื่อคอลัมน์",
+    "viewTasks": "ดูงาน",
+    "viewTimeline": "ดูไทม์ไลน์",
     "modal": {
       "title": "สร้างโปรเจคใหม่",
       "nameLabel": "ชื่อโปรเจค",
       "namePlaceholder": "เช่น Website Redesign",
       "dueDateLabel": "กำหนดส่ง",
       "submit": "สร้างโปรเจค"
+    },
+    "editModal": {
+      "title": "แก้ไขโปรเจค",
+      "submit": "บันทึกการแก้ไข"
     }
   },
   "notifications": {
     "title": "การแจ้งเตือน",
     "subtitle": "คำเชิญเข้าร่วมโปรเจคที่รอการตอบรับ",
+    "activityTitle": "การแจ้งเตือนงาน",
+    "activityEmpty": "ยังไม่มีการแจ้งเตือนที่ยังไม่อ่าน",
+    "invitationsTitle": "คำเชิญ",
     "loadError": "ไม่สามารถโหลดการแจ้งเตือนได้",
     "empty": "ยังไม่มีคำเชิญใหม่",
     "inviteFrom": "เชิญคุณเข้าทีม",
     "project": "โปรเจค",
     "accept": "ยอมรับ",
     "decline": "ปฏิเสธ",
-    "generalError": "เกิดข้อผิดพลาด"
+    "generalError": "เกิดข้อผิดพลาด",
+    "readAll": "อ่านทั้งหมด"
   },
   "kanban": {
     "inviteMember": "เชิญสมาชิก",
     "inviteHint": "ใส่ username, รหัสพนักงาน หรือ email ของสมาชิกที่ต้องการเชิญ",
     "inviteeInfo": "ข้อมูลผู้รับเชิญ",
-    "invitePlaceholder": "เช่น user_name หรือ 100001193 หรือ user@example.com",
+    "invitePlaceholder": "เช่น user_name หรือ 10000XXXX หรือ user@example.com",
     "invite": "เชิญ",
     "inviteSuccess": "ส่งคำเชิญเรียบร้อยแล้ว",
     "inviteFailed": "ไม่สามารถส่งคำเชิญได้",
@@ -117,6 +130,8 @@
     "taskTypeLabel": "ประเภทงาน (Type)",
     "taskTypeGeneral": "ทั่วไป (General)",
     "assigneeLabel": "ผู้รับผิดชอบ (Assignee)",
+    "startDateLabel": "วันเริ่มงาน",
+    "dueDateLabel": "กำหนดส่งงาน",
     "descriptionLabel": "รายละเอียด (Description - รองรับรูปภาพ)",
     "descriptionPlaceholder": "พิมพ์รายละเอียดงาน วางภาพ หรือจัดรูปแบบได้ตามต้องการ...",
     "deleteTask": "ลบงาน",
@@ -127,6 +142,7 @@
     "creator": "ผู้สร้าง",
     "unknown": "ไม่ทราบ",
     "descriptionSection": "รายละเอียด (Description)",
+    "editTitle": "แก้ไขชื่องาน",
     "editDescription": "แก้ไขรายละเอียด",
     "noDescription": "ไม่มีรายละเอียดงาน...",
     "comments": "ความคิดเห็น",
@@ -139,6 +155,40 @@
     "cannotDeleteColumn": "ไม่สามารถลบคอลัมน์นี้ได้เพราะยังมีงานอยู่",
     "assigneeTeamOnly": "เลือกผู้รับผิดชอบได้เฉพาะสมาชิกทีมเท่านั้น",
     "addAssigneeFailed": "ไม่สามารถเพิ่มผู้รับผิดชอบได้",
-    "removeAssigneeFailed": "ไม่สามารถลบผู้รับผิดชอบได้"
+    "removeAssigneeFailed": "ไม่สามารถลบผู้รับผิดชอบได้",
+    "urgent": "เร่งด่วน",
+    "notUrgent": "ไม่เร่งด่วน",
+    "copyInviteLink": "คัดลอกลิงก์",
+    "generateInviteLink": "สร้างลิงก์เชิญ",
+    "cannotCreateInviteLink": "ไม่สามารถสร้างลิงก์เชิญได้",
+    "inviteLinkCreated": "สร้างลิงก์เชิญเรียบร้อยแล้ว",
+    "inviteLinkCopied": "คัดลอกลิงก์เชิญแล้ว",
+    "cannotCopyInviteLink": "ไม่สามารถคัดลอกลิงก์เชิญได้",
+    "removeMember": "ลบออก",
+    "removingMember": "กำลังลบ...",
+    "removeMemberConfirm": "ลบ {name} ออกจากทีมนี้หรือไม่?",
+    "removeMemberSuccess": "ลบสมาชิกเรียบร้อยแล้ว",
+    "removeMemberFailed": "ไม่สามารถลบสมาชิกได้",
+    "cannotRemoveSelf": "คุณไม่สามารถลบตัวเองได้",
+    "cannotRemoveLastAdmin": "ไม่สามารถลบแอดมินคนสุดท้ายของทีมได้",
+    "myTasks": "งานของฉัน",
+    "viewTimeline": "ดูไทม์ไลน์",
+    "selectMultiplePeople": "เลือกได้หลายคน",
+    "andAtLeastOne": "และต้องมีอย่างน้อย 1 คน",
+    "noMatchingUsers": "ไม่พบผู้ใช้ที่ตรงกับคำค้นหา",
+    "selected": "เลือกแล้ว"
+  },
+  "timeline": {
+    "title": "ไทม์ไลน์โปรเจค",
+    "allTasks": "งานทั้งหมด",
+    "scheduled": "งานที่กำหนดเวลาแล้ว",
+    "urgent": "งานเร่งด่วน",
+    "searchTaskTitle": "ค้นหาชื่องาน...",
+    "allAssignees": "ผู้รับผิดชอบทั้งหมด",
+    "done": "งานเสร็จแล้ว",
+    "showing": "แสดง",
+    "hidden": "ซ่อน",
+    "noDates": "ไม่มีวันที่",
+    "tasksWithoutDates": "งานที่ไม่มีกำหนดส่ง"
   }
 }

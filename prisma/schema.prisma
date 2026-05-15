@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
   output   = "../src/generated/prisma"
@@ -10,9 +7,6 @@ datasource db {
   provider = "postgresql"
 }
 
-// -----------------------------------------------------------------------------
-// User & Auth
-// -----------------------------------------------------------------------------
 model User {
   id         String  @id @default(uuid())
   username   String  @unique
@@ -22,14 +16,19 @@ model User {
   position   String?
   department String?
   avatar     String?
+  // user preferences
+  emailNotifications Boolean @default(true) @map("email_notifications")
+  pushNotifications  Boolean @default(true) @map("push_notifications")
+  locale             String  @map("locale") @default("th")
 
-  // Relations
-  teamMembers        TeamMember[]
-  taskAssignments    TaskAssignee[]
-  taskComments       Comment[]
-  createdTasks       Task[]         @relation("TaskCreator")
-  invitationsSent Invitation[] @relation("InvitationInviter")
-  invitationsReceived Invitation[] @relation("InvitationInvitee")
+  teamMembers         TeamMember[]
+  taskAssignments     TaskAssignee[]
+  taskComments        Comment[]
+  createdTasks        Task[]         @relation("TaskCreator")
+  invitationsSent     Invitation[]   @relation("InvitationInviter")
+  invitationsReceived Invitation[]   @relation("InvitationInvitee")
+  notificationsReceived Notification[] @relation("NotificationRecipient")
+  notificationsActed    Notification[] @relation("NotificationActor")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -38,16 +37,13 @@ model User {
   @@map("users")
 }
 
-// -----------------------------------------------------------------------------
-// Team & Project
-// -----------------------------------------------------------------------------
 model Team {
   id          String  @id @default(uuid())
   name        String
   description String?
 
-  members  TeamMember[]
-  projects Project[]
+  members     TeamMember[]
+  projects    Project[]
   invitations Invitation[]
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -61,7 +57,7 @@ model TeamMember {
   id     String @id @default(uuid())
   userId String @map("user_id")
   teamId String @map("team_id")
-  role   Role   @default(MEMBER) // ADMIN, MEMBER
+  role   Role   @default(MEMBER)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
@@ -90,22 +86,24 @@ enum InvitationStatus {
 model Invitation {
   id String @id @default(uuid())
 
-  teamId String @map("team_id")
-  projectId String? @map("project_id")
-  inviterUserId String @map("inviter_user_id")
+  teamId        String  @map("team_id")
+  projectId     String? @map("project_id")
+  inviterUserId String  @map("inviter_user_id")
   inviteeUserId String? @map("invitee_user_id")
 
   inviteeUsername String? @map("invitee_username")
-  inviteeEmpNo String? @map("invitee_emp_no")
-  inviteeEmail String? @map("invitee_email")
+  inviteeEmpNo    String? @map("invitee_emp_no")
+  inviteeEmail    String? @map("invitee_email")
 
-  status InvitationStatus @default(PENDING)
-  respondedAt DateTime? @map("responded_at")
+  status                  InvitationStatus @default(PENDING)
+  respondedAt             DateTime?        @map("responded_at")
+  invitationTokenHash     String?          @unique @map("invitation_token_hash")
+  invitationTokenExpiresAt DateTime?       @map("invitation_token_expires_at")
 
-  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  team    Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
   project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  inviter User @relation("InvitationInviter", fields: [inviterUserId], references: [id], onDelete: Cascade)
-  invitee User? @relation("InvitationInvitee", fields: [inviteeUserId], references: [id], onDelete: SetNull)
+  inviter User     @relation("InvitationInviter", fields: [inviterUserId], references: [id], onDelete: Cascade)
+  invitee User?    @relation("InvitationInvitee", fields: [inviteeUserId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -117,6 +115,7 @@ model Invitation {
   @@index([inviteeUsername])
   @@index([inviteeEmpNo])
   @@index([inviteeEmail])
+  @@index([invitationTokenExpiresAt])
   @@map("invitations")
 }
 
@@ -128,10 +127,11 @@ model Project {
   dueDate     DateTime? @map("due_date")
   teamId      String
 
-  team  Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  steps Step[] // คอลัมน์ต่างๆ ในโปรเจค (TODO, Dev, Test, Done, etc.)
-  tasks Task[]
+  team        Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  steps       Step[]
+  tasks       Task[]
   invitations Invitation[]
+  notifications Notification[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -140,19 +140,16 @@ model Project {
   @@map("projects")
 }
 
-// -----------------------------------------------------------------------------
-// Workflow & Tasks
-// -----------------------------------------------------------------------------
-// Step คือ คอลัมน์สถานะ (เช่น TODO, Dev, Test, Done) ให้จัดการได้ตามแต่ละ Project 
 model Step {
   id        String @id @default(uuid())
-  title     String // ชื่อคอลัมน์ (รอทำ, กำลังทำ)
-  color     String @default("#9ca3af") // สีหลัก (Hex code)
-  order     Int // ตำแหน่งเรียงซ้ายขวา
+  title     String
+  color     String @default("#9ca3af")
+  order     Int
   projectId String @map("project_id")
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  tasks   Task[]
+  project       Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks         Task[]
+  notifications Notification[]
 
   @@unique([projectId, title])
   @@map("steps")
@@ -161,25 +158,27 @@ model Step {
 model Task {
   id      String  @id @default(uuid())
   title   String
-  type    String  @default("General") // ประเภทงาน (Frontend, Backend, etc.)
-  content String? @db.Text // เนื้อหา HTML จาก Rich Text Editor
-  order   Float // ใช้สำหรับ Drag & Drop จัดลำดับในคอลัมน์
+  type    String  @default("General")
+  content String? @db.Text
+  order   Float
+  isUrgent Boolean @default(false) @map("is_urgent")
+  startDate DateTime? @map("start_date") @db.Date
+  dueDate   DateTime? @map("due_date") @db.Date
 
-  // Relations
-  projectId  String  @map("project_id")
-  stepId     String  @map("step_id")
-  creatorId  String  @map("creator_id")
+  projectId String @map("project_id")
+  stepId    String @map("step_id")
+  creatorId String @map("creator_id")
 
-  // Subtasks
   parentId String? @map("parent_id")
   parent   Task?   @relation("SubTasks", fields: [parentId], references: [id])
   subTasks Task[]  @relation("SubTasks")
 
-  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  step     Step      @relation(fields: [stepId], references: [id])
-  assignees TaskAssignee[]
-  creator  User      @relation("TaskCreator", fields: [creatorId], references: [id])
-  comments Comment[]
+  project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  step          Step           @relation(fields: [stepId], references: [id])
+  assignees     TaskAssignee[]
+  creator       User           @relation("TaskCreator", fields: [creatorId], references: [id])
+  comments      Comment[]
+  notifications Notification[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -218,4 +217,36 @@ model Comment {
 
   @@index([id])
   @@map("comments")
+}
+
+enum NotificationType {
+  TASK_STEP_CHANGED
+  TASK_ASSIGNED
+  STEP_UPDATED
+}
+
+model Notification {
+  id            String           @id @default(uuid())
+  type          NotificationType
+  recipientId   String           @map("recipient_id")
+  actorId       String?          @map("actor_id")
+  taskId        String?          @map("task_id")
+  stepId        String?          @map("step_id")
+  projectId     String           @map("project_id")
+  title         String
+  message       String           @db.Text
+  read          Boolean          @default(false)
+
+  recipient User    @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  actor     User?   @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  task      Task?   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  step      Step?   @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([recipientId])
+  @@index([read])
+  @@index([projectId])
+  @@map("notifications")
 }

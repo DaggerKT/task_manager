@@ -1,133 +1,247 @@
-import { useState } from "react";
-import { X } from "lucide-react";
-import dynamic from "next/dynamic";
-import type { ProjectMember } from "@/types/project";
-import "react-quill-new/dist/quill.snow.css";
-
-const ReactQuill = dynamic(() => import("react-quill-new"), { ssr: false });
+import {
+  Avatar,
+  Button,
+  Checkbox,
+  Col,
+  DatePicker,
+  Input,
+  Modal,
+  Row,
+  Select,
+  Space,
+  Typography,
+} from "antd";
+import dayjs from "dayjs";
+import { useLanguage } from "@/contexts/LanguageContext";
+import TinyEditor from "@/components/TinyEditor";
 
 interface Props {
-  isOpen: boolean;
-  onClose: () => void;
-  members: ProjectMember[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onAddTask: (task: any) => void;
+  isTaskModalOpen: boolean;
+  setIsTaskModalOpen: (open: boolean) => void;
+  newTaskTitle: string;
+  setNewTaskTitle: (title: string) => void;
+  newTaskType: string;
+  setNewTaskType: (type: string) => void;
+  newTaskAssigneeIds: string[];
+  setNewTaskAssigneeIds: (ids: string[]) => void;
+  newTaskStartDate: string;
+  setNewTaskStartDate: (date: string) => void;
+  newTaskDueDate: string;
+  setNewTaskDueDate: (date: string) => void;
+  newTaskIsUrgent: boolean;
+  setNewTaskIsUrgent: (isUrgent: boolean) => void;
+  newTaskDescription: string;
+  setNewTaskDescription: (desc: string) => void;
+  members: { id: string; name: string; avatarUrl: string }[];
+  teamMemberIds: string[];
+  handleAddTaskSubmit: () => void;
+  setNewTaskStepId: (id: string) => void;
 }
 
-export default function AddTaskModal({ isOpen, onClose, members, onAddTask }: Props) {
-  const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [newTaskType, setNewTaskType] = useState("General");
-  const [newTaskAssignee, setNewTaskAssignee] = useState("K");
-  const [newTaskDescription, setNewTaskDescription] = useState("");
-
-  if (!isOpen) return null;
-
-  const handleSubmit = () => {
-    if (!newTaskTitle.trim()) return;
-
-    onAddTask({
-      id: `t_${Date.now()}`,
-      title: newTaskTitle,
-      status: "todo",
-      type: newTaskType,
-      assignee: newTaskAssignee,
-      description: newTaskDescription,
-      comments: 0,
-      commentList: []
-    });
-
-    setNewTaskTitle("");
-    setNewTaskType("General");
-    setNewTaskAssignee("K");
-    setNewTaskDescription("");
-  };
-
+export default function AddTaskModal({
+  isTaskModalOpen,
+  setIsTaskModalOpen,
+  newTaskTitle,
+  setNewTaskTitle,
+  newTaskType,
+  setNewTaskType,
+  newTaskAssigneeIds,
+  setNewTaskAssigneeIds,
+  newTaskStartDate,
+  setNewTaskStartDate,
+  newTaskDueDate,
+  setNewTaskDueDate,
+  newTaskIsUrgent,
+  setNewTaskIsUrgent,
+  newTaskDescription,
+  setNewTaskDescription,
+  members,
+  teamMemberIds,
+  handleAddTaskSubmit,
+  setNewTaskStepId,
+}: Props) {
+  const { t } = useLanguage();
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden relative flex flex-col max-h-[90vh]">
-        <div className="flex justify-between items-center p-5 border-b border-gray-100 shrink-0">
-          <h2 className="text-lg font-bold text-gray-900">สร้างงานใหม่</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1">
-            <X className="w-5 h-5" />
-          </button>
+    <Modal
+      title={t.kanban.createNewTask}
+      open={isTaskModalOpen}
+      onCancel={() => {
+        setIsTaskModalOpen(false);
+        setNewTaskStepId("");
+        setNewTaskIsUrgent(false);
+      }}
+      width={"80vw"}
+      style={{ top: 20, minHeight: "80vh" }}
+      footer={[
+        <Button
+          key="cancel"
+          onClick={() => {
+            setIsTaskModalOpen(false);
+            setNewTaskStepId("");
+            setNewTaskIsUrgent(false);
+          }}
+        >
+          {t.common.cancel}
+        </Button>,
+        <Button
+          key="submit"
+          type="primary"
+          onClick={handleAddTaskSubmit}
+          disabled={!newTaskTitle.trim() || newTaskAssigneeIds.length === 0}
+        >
+          {t.kanban.createNewTask}
+        </Button>,
+      ]}
+    >
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "20px",
+          minHeight: "80vh",
+          maxHeight: "80vh",
+          overflowY: "auto",
+          overflowX: "hidden",
+        }}
+        className="thin-scrollbar"
+      >
+        {/* Task Title */}
+        <div>
+          <Typography.Text strong>
+            {t.kanban.taskTitleLabel}{" "}
+            <span style={{ color: "#ff4d4f" }}>*</span>
+          </Typography.Text>
+          <Input
+            placeholder={t.kanban.taskTitlePlaceholder}
+            value={newTaskTitle}
+            onChange={(e) => setNewTaskTitle(e.target.value)}
+            style={{ marginTop: "8px" }}
+          />
         </div>
-        
-        <div className="p-6 space-y-5 overflow-y-auto flex-1">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">ชื่องาน (Task Title) <span className="text-red-500">*</span></label>
-            <input 
-              type="text" 
-              value={newTaskTitle}
-              onChange={(e) => setNewTaskTitle(e.target.value)}
-              placeholder="เช่น ออกแบบหน้า Login..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+
+        <Row gutter={16}>
+          <Col span={12}>
+            <Typography.Text
+              strong
+              style={{ display: "block", marginBottom: "8px" }}
+            >
+              {t.kanban.taskTypeLabel}
+            </Typography.Text>
+            <Select
+              style={{ width: "100%" }}
+              value={newTaskType}
+              onChange={setNewTaskType}
+              options={[
+                { label: "Frontend", value: "Frontend" },
+                { label: "Backend", value: "Backend" },
+                { label: "Design", value: "Design" },
+                { label: "QA", value: "QA" },
+                { label: t.kanban.taskTypeGeneral, value: "General" },
+              ]}
+            />
+          </Col>
+          <Col span={12}>
+            <Typography.Text
+              strong
+              style={{ display: "block", marginBottom: "8px" }}
+            >
+              {t.kanban.assigneeLabel}
+            </Typography.Text>
+            <Select
+              mode="multiple"
+              style={{ width: "100%" }}
+              placeholder="เลือกผู้รับผิดชอบ"
+              value={newTaskAssigneeIds}
+              onChange={(values) => {
+                if (values.length === 0) {
+                  alert(t.kanban.minOneAssignee);
+                  return;
+                }
+                setNewTaskAssigneeIds(values);
+              }}
+              optionLabelProp="label"
+            >
+              {members
+                .filter((m) => teamMemberIds.includes(m.id))
+                .map((member) => (
+                  <Select.Option
+                    key={member.id}
+                    value={member.id}
+                    label={member.name}
+                  >
+                    <Space>
+                      <Avatar size="small" src={member.avatarUrl}>
+                        {member.name[0]}
+                      </Avatar>
+                      {member.name}
+                    </Space>
+                  </Select.Option>
+                ))}
+            </Select>
+          </Col>
+        </Row>
+
+        <Row gutter={16}>
+          <Col span={12}>
+            <Typography.Text
+              strong
+              style={{ display: "block", marginBottom: "8px" }}
+            >
+              {t.kanban.startDateLabel} / {t.kanban.dueDateLabel}
+            </Typography.Text>
+            <DatePicker.RangePicker
+              style={{ width: "100%" }}
+              value={
+                newTaskStartDate && newTaskDueDate
+                  ? [dayjs(newTaskStartDate), dayjs(newTaskDueDate)]
+                  : null
+              }
+              onChange={(dates) => {
+                if (!dates || !dates[0] || !dates[1]) {
+                  setNewTaskStartDate("");
+                  setNewTaskDueDate("");
+                  return;
+                }
+                setNewTaskStartDate(dates[0].format("YYYY-MM-DD"));
+                setNewTaskDueDate(dates[1].format("YYYY-MM-DD"));
+              }}
+            />
+          </Col>
+          <Col span={12}>
+            <Typography.Text
+              strong
+              style={{ display: "block", marginBottom: "8px" }}
+            >
+              ⚡ {t.kanban.urgent}
+            </Typography.Text>
+            <Checkbox
+              checked={newTaskIsUrgent}
+              onChange={(e) => setNewTaskIsUrgent(e.target.checked)}
+            ></Checkbox>
+          </Col>
+        </Row>
+
+        <div>
+          <Typography.Text
+            strong
+            style={{ display: "block", marginBottom: "8px" }}
+          >
+            {t.kanban.descriptionLabel}
+          </Typography.Text>
+          <div
+            style={{
+              border: "1px solid #d9d9d9",
+              borderRadius: "8px",
+              overflow: "hidden",
+            }}
+          >
+            <TinyEditor 
+              newDescription={newTaskDescription}
+              setNewDescription={setNewTaskDescription}
             />
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">ประเภทงาน (Type)</label>
-              <select 
-                value={newTaskType}
-                onChange={(e) => setNewTaskType(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              >
-                <option value="Frontend">Frontend</option>
-                <option value="Backend">Backend</option>
-                <option value="Design">Design</option>
-                <option value="QA">QA</option>
-                <option value="General">ทั่วไป (General)</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">ผู้รับผิดชอบ (Assignee)</label>
-              <select 
-                value={newTaskAssignee}
-                onChange={(e) => setNewTaskAssignee(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              >
-                {members.map(member => (
-                  <option key={member.id} value={member.avatar}>{member.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="flex-1 flex flex-col min-h-[250px]">
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">รายละเอียด (Description - รองรับรูปภาพ)</label>
-            <div className="flex-1 border border-gray-300 rounded-lg overflow-hidden [&_.quill]:h-[200px] [&_.ql-container]:border-none [&_.ql-toolbar]:border-none [&_.ql-toolbar]:border-b [&_.ql-toolbar]:border-gray-300">
-              <ReactQuill 
-                theme="snow" 
-                value={newTaskDescription} 
-                onChange={setNewTaskDescription}
-                placeholder="พิมพ์รายละเอียดงาน วางภาพ หรือจัดรูปแบบได้ตามต้องการ..."
-                modules={{
-                  toolbar: [
-                    [{ 'header': [1, 2, 3, false] }],
-                    ['bold', 'italic', 'underline', 'strike'],
-                    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                    ['link', 'image'],
-                    ['clean']
-                  ],
-                }}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="p-5 border-t border-gray-100 flex justify-end gap-3 bg-gray-50 shrink-0">
-          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors">
-            ยกเลิก
-          </button>
-          <button 
-            onClick={handleSubmit}
-            disabled={!newTaskTitle.trim()}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
-          >
-            สร้างงาน
-          </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

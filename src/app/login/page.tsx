@@ -1,24 +1,41 @@
 ﻿"use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { login, fetchUserInfo } from "@/apis/auth";
 import { syncUserToDatabase } from "@/actions/auth";
+import {
+  Alert,
+  Button,
+  Card,
+  Form,
+  Input,
+  Space,
+  Spin,
+  Typography,
+} from "antd";
 
-export default function LoginPage() {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+type LoginFormValues = {
+  username: string;
+  password: string;
+};
+
+function LoginForm() {
+  const [form] = Form.useForm<LoginFormValues>();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLogin = async (values: LoginFormValues) => {
     setLoading(true);
     setError("");
 
     try {
-      const data = await login({ username, password });
+      const data = await login({
+        username: values.username,
+        password: values.password,
+      });
 
       if (data.status && data.accessToken) {
         const userInfoRes = await fetchUserInfo(data.accessToken);
@@ -37,7 +54,10 @@ export default function LoginPage() {
         }
 
         localStorage.setItem("accessToken", data.accessToken);
-        router.push("/");
+        const nextPath = searchParams.get("next");
+        const redirectPath =
+          nextPath && nextPath.startsWith("/") ? nextPath : "/";
+        router.push(redirectPath);
       } else {
         setError(data.message || "ล็อคอินไม่สำเร็จ กรุณาตรวจสอบข้อมูล");
       }
@@ -49,73 +69,109 @@ export default function LoginPage() {
     }
   };
 
+  useEffect(() => {
+    const fetchUser = async () => {
+      const token = localStorage.getItem("accessToken");
+      if (token) {
+        const user = await fetchUserInfo(token);
+        if (user?.status && user?.empData) {
+          router.push("/");
+        } else {
+          localStorage.removeItem("accessToken");
+        }
+      }
+    };
+    fetchUser();
+  }, []);
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100">
-      <div className="w-full max-w-md space-y-8 rounded-xl bg-white p-10 shadow-lg">
-        <div className="text-center">
-          <h2 className="mt-2 text-3xl font-bold tracking-tight text-gray-900">
-            Task Manager
-          </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            ยินดีต้อนรับเข้าสู่ระบบจัดการงาน
-          </p>
-        </div>
-        <form className="mt-8 space-y-6" onSubmit={handleLogin}>
-          {error && (
-            <div className="rounded-md bg-red-50 p-4 text-sm text-red-500 border border-red-200">
-              {error}
-            </div>
-          )}
-          <div className="space-y-4 rounded-md shadow-sm">
-            <div>
-              <label
-                htmlFor="username"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                ชื่อผู้ใช้ (Username)
-              </label>
-              <input
-                id="username"
-                name="username"
-                type="text"
-                required
-                className="relative block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:z-10 focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
-                placeholder="Username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                รหัสผ่าน (Password)
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                className="relative block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:z-10 focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
-                placeholder="รหัสผ่านของคุณ"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#f5f7fb",
+        padding: 16,
+      }}
+    >
+      <Card
+        style={{
+          width: "100%",
+          maxWidth: 460,
+          boxShadow: "0 10px 30px rgba(15, 23, 42, 0.08)",
+        }}
+      >
+        <Space direction="vertical" size={20} style={{ width: "100%" }}>
+          <div style={{ textAlign: "center" }}>
+            <Typography.Title level={2} style={{ marginBottom: 4 }}>
+              Project Task Management
+            </Typography.Title>
+            <Typography.Text type="secondary">
+              ยินดีต้อนรับเข้าสู่ระบบจัดการงาน
+            </Typography.Text>
           </div>
 
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative flex w-full justify-center rounded-md border border-transparent bg-blue-600 py-2.5 px-4 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 transition-colors"
+          {error && <Alert type="error" showIcon message={error} />}
+
+          <Form<LoginFormValues>
+            form={form}
+            name="login"
+            layout="vertical"
+            onFinish={handleLogin}
+            requiredMark={false}
+          >
+            <Form.Item
+              label="ชื่อผู้ใช้ (Username)"
+              name="username"
+              className="mb-3!"
+              rules={[{ required: true, message: "กรุณากรอกชื่อผู้ใช้" }]}
             >
-              {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
-            </button>
-          </div>
-        </form>
-      </div>
+              <Input placeholder="Username" autoComplete="username" />
+            </Form.Item>
+            <Form.Item
+              label="รหัสผ่าน (Password)"
+              name="password"
+              rules={[{ required: true, message: "กรุณากรอกรหัสผ่าน" }]}
+            >
+              <Input.Password
+                placeholder="รหัสผ่านของคุณ"
+                autoComplete="current-password"
+              />
+            </Form.Item>
+            <Form.Item style={{ marginBottom: 0 }}>
+              <Button type="primary" htmlType="submit" block loading={loading}>
+                {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
+              </Button>
+            </Form.Item>
+          </Form>
+        </Space>
+      </Card>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div
+          style={{
+            minHeight: "100vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "#f5f7fb",
+          }}
+        >
+          <Space align="center">
+            <Spin size="small" />
+            <Typography.Text type="secondary">กำลังโหลด...</Typography.Text>
+          </Space>
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }

@@ -1,10 +1,40 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { FolderGit2, Plus, Search, MoreVertical, X } from "lucide-react";
-import Link from "next/link";
+import {
+  FolderGit2,
+  Plus,
+  Search,
+  MoreVertical,
+  LayoutGrid,
+  List as ListIcon,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
-import { createProject, deleteProject } from "@/actions/project";
+import dayjs from "dayjs";
+import {
+  Avatar,
+  Button,
+  Card,
+  DatePicker,
+  Dropdown,
+  Empty,
+  Input,
+  Modal,
+  Progress,
+  Segmented,
+  Select,
+  Space,
+  Tag,
+  Typography,
+  message,
+} from "antd";
+import {
+  ClockCircleOutlined,
+  DeleteOutlined,
+  EditOutlined,
+  IssuesCloseOutlined,
+} from "@ant-design/icons";
+import { createProject, deleteProject, updateProject } from "@/actions/project";
 import type { ProjectItem } from "@/types/project";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -14,17 +44,21 @@ export default function ProjectsList({
   initialProjects: ProjectItem[];
 }) {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
+  const [messageApi, contextHolder] = message.useMessage();
   const [projects, setProjects] = useState(initialProjects);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [viewMode, setViewMode] = useState<"card" | "list">("card");
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectDueDate, setNewProjectDueDate] = useState("");
-
-  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [editProjectName, setEditProjectName] = useState("");
+  const [editProjectDueDate, setEditProjectDueDate] = useState("");
 
   useEffect(() => {
     setProjects(initialProjects);
@@ -59,10 +93,20 @@ export default function ProjectsList({
     });
   }, [projects, searchQuery, statusFilter]);
 
+  const dateLocale = locale === "th" ? "th-TH" : "en-US";
+
+  const formatDate = (value: string | null) => {
+    if (!value) return t.projects.noDueDate;
+    return new Date(value).toLocaleDateString(dateLocale, {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
   const handleCreateProject = async () => {
     if (!newProjectName.trim()) return;
 
-    // Call Server Action
     const res = await createProject(newProjectName, newProjectDueDate || null);
 
     if (res.success && res.project) {
@@ -71,13 +115,17 @@ export default function ProjectsList({
         name: res.project.name,
         status: res.project.status,
         progress: 0,
-        members: 1, // Simulated for now
+        members: 1,
+        memberAvatars: [],
         dueDate: res.project.dueDate
           ? new Date(res.project.dueDate).toISOString()
           : null,
         canDelete: true,
       };
       setProjects([newProject, ...projects]);
+      messageApi.success(t.projects.modal.submit);
+    } else {
+      messageApi.error(res.error || "ไม่สามารถสร้างโปรเจคได้");
     }
 
     setIsCreateModalOpen(false);
@@ -86,242 +134,505 @@ export default function ProjectsList({
   };
 
   const handleDeleteProject = async (id: string) => {
-    if (confirm(t.projects.deleteConfirm)) {
-      const res = await deleteProject(id);
-      if (res.success) {
-        setProjects(projects.filter((p) => p.id !== id));
-      } else {
-        alert(res.error || "ไม่สามารถลบโปรเจคได้");
-      }
+    Modal.confirm({
+      title: t.projects.deleteConfirm,
+      okText: t.projects.deleteProject,
+      cancelText: t.common.cancel,
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        const res = await deleteProject(id);
+        if (res.success) {
+          setProjects((prev) => prev.filter((p) => p.id !== id));
+          messageApi.success(t.projects.deleteProject);
+        } else {
+          messageApi.error(res.error || "ไม่สามารถลบโปรเจคได้");
+        }
+      },
+    });
+  };
+
+  const handleOpenEditModal = (project: ProjectItem) => {
+    if (!project.canDelete) return;
+    setEditingProjectId(project.id);
+    setEditProjectName(project.name);
+    setEditProjectDueDate(project.dueDate ? project.dueDate.slice(0, 10) : "");
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateProject = async () => {
+    if (!editingProjectId || !editProjectName.trim()) return;
+
+    const res = await updateProject(
+      editingProjectId,
+      editProjectName,
+      editProjectDueDate || null,
+    );
+
+    if (res.success && res.project) {
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.id === editingProjectId
+            ? {
+                ...p,
+                name: res.project.name,
+                dueDate: res.project.dueDate
+                  ? new Date(res.project.dueDate).toISOString()
+                  : null,
+              }
+            : p,
+        ),
+      );
+      setIsEditModalOpen(false);
+      setEditingProjectId(null);
+      setEditProjectName("");
+      setEditProjectDueDate("");
+      messageApi.success(t.projects.editModal.submit);
+    } else {
+      messageApi.error(res.error || "ไม่สามารถแก้ไขโปรเจคได้");
     }
   };
-  
+
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+    setEditingProjectId(null);
+    setEditProjectName("");
+    setEditProjectDueDate("");
+  };
+
+  const statusColor = (status: string) => {
+    if (status === "Done") return "green";
+    if (status === "Planning") return "gold";
+    return "blue";
+  };
+
   return (
-    <div className="space-y-6 pb-10">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+    <Space
+      orientation="vertical"
+      size={20}
+      style={{ width: "100%", paddingBottom: 24 }}
+    >
+      {contextHolder}
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 12,
+          flexWrap: "wrap",
+        }}
+      >
+        <Space orientation="vertical" size={2}>
+          <Typography.Title level={3} style={{ margin: 0 }}>
             {t.projects.title}
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">{t.projects.subtitle}</p>
-        </div>
-        <button
+          </Typography.Title>
+          <Typography.Text type="secondary">
+            {t.projects.subtitle}
+          </Typography.Text>
+        </Space>
+
+        <Button
+          type="primary"
+          icon={<Plus size={16} />}
           onClick={() => setIsCreateModalOpen(true)}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
         >
-          <Plus className="w-5 h-5" />
-          <span>{t.projects.createNew}</span>
-        </button>
+          {t.projects.createNew}
+        </Button>
       </div>
 
-      {/* Filters & Search */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col sm:flex-row gap-4 justify-between items-center sticky -top-6 z-10">
-        <div className="relative w-full sm:w-96">
-          <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder={t.projects.searchPlaceholder}
+      <Card style={{ position: "sticky", top: 0, zIndex: 5 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
+          <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            prefix={<Search size={16} />}
+            placeholder={t.projects.searchPlaceholder}
+            style={{ width: 360, maxWidth: "100%" }}
           />
-        </div>
-        <div className="flex gap-2 w-full sm:w-auto overflow-x-auto">
-          <button
-            onClick={() => setStatusFilter("All")}
-            className={`px-4 py-2 ${statusFilter === "All" ? "bg-blue-50 text-blue-700" : "hover:bg-gray-100 text-gray-600"} rounded-lg text-sm font-medium whitespace-nowrap`}
-          >
-            {t.projects.filterAll}
-          </button>
-          <button
-            onClick={() => setStatusFilter("Active")}
-            className={`px-4 py-2 ${statusFilter === "Active" ? "bg-blue-50 text-blue-700" : "hover:bg-gray-100 text-gray-600"} rounded-lg text-sm font-medium whitespace-nowrap`}
-          >
-            {t.projects.filterActive}
-          </button>
-          <button
-            onClick={() => setStatusFilter("Done")}
-            className={`px-4 py-2 ${statusFilter === "Done" ? "bg-blue-50 text-blue-700" : "hover:bg-gray-100 text-gray-600"} rounded-lg text-sm font-medium whitespace-nowrap`}
-          >
-            {t.projects.filterDone}
-          </button>
-        </div>
-      </div>
 
-      {/* Projects Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredProjects.length === 0 ? (
-          <div className="col-span-full py-12 text-center text-gray-500 bg-white rounded-xl border border-dashed border-gray-300">
-            {t.projects.noResults}
-          </div>
-        ) : (
-          filteredProjects.map((project) => (
-            <Link
-              href={`/projects/${project.id}`}
+          <Space wrap align="center">
+            <Segmented
+              value={viewMode}
+              onChange={(value) => setViewMode(value as "card" | "list")}
+              options={[
+                {
+                  value: "card",
+                  icon: <LayoutGrid size={16} className="mt-1.5" />,
+                },
+                {
+                  value: "list",
+                  icon: <ListIcon size={16} className="mt-1.5" />,
+                },
+              ]}
+            />
+
+            <Select
+              value={statusFilter}
+              onChange={setStatusFilter}
+              style={{ minWidth: 171 }}
+              options={[
+                { value: "All", label: t.projects.filterAll },
+                { value: "Active", label: t.projects.filterActive },
+                { value: "Done", label: t.projects.filterDone },
+              ]}
+            />
+          </Space>
+        </div>
+      </Card>
+
+      {filteredProjects.length === 0 ? (
+        <Card>
+          <Empty description={t.projects.noResults} />
+        </Card>
+      ) : viewMode === "card" ? (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+            gap: 16,
+          }}
+        >
+          {filteredProjects.map((project) => (
+            <Card
               key={project.id}
-              className="relative bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md hover:border-blue-200 transition-all block group"
+              hoverable
+              onClick={() => router.push(`/projects/${project.id}`)}
+              styles={{ body: { padding: 16 } }}
             >
-              <div className="flex justify-between items-start mb-4">
-                <div className="p-3 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                  <FolderGit2 className="w-6 h-6" />
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  marginBottom: 12,
+                }}
+              >
+                <div
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 10,
+                    background: "#eff6ff",
+                    color: "#2563eb",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <FolderGit2 size={20} />
                 </div>
-                {project.canDelete && (
-                  <div className="relative">
-                    <button
-                      className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setOpenDropdownId(
-                          openDropdownId === project.id ? null : project.id,
-                        );
+
+                <Dropdown
+                  trigger={["click"]}
+                  menu={{
+                    items: [
+                      {
+                        key: "viewTasks",
+                        label: (
+                          <span>
+                            <IssuesCloseOutlined style={{ marginRight: 4 }} />
+                            {t.projects.viewTasks}
+                          </span>
+                        ),
+                        onClick: ({ domEvent }) => {
+                          domEvent.stopPropagation();
+                          router.push(`/projects/${project.id}`);
+                        },
+                      },
+                      {
+                        key: "viewTimeline",
+                        label: (
+                          <span>
+                            <ClockCircleOutlined style={{ marginRight: 4 }} />
+                            {t.projects.viewTimeline}
+                          </span>
+                        ),
+                        onClick: ({ domEvent }) => {
+                          domEvent.stopPropagation();
+                          router.push(`/projects/${project.id}/timeline`);
+                        },
+                      },
+                      ...(project.canDelete
+                        ? [
+                            {
+                              key: "edit",
+                              label: (
+                                <span>
+                                  <EditOutlined style={{ marginRight: 4 }} />
+                                  {t.projects.editProject}
+                                </span>
+                              ),
+                              onClick: ({ domEvent }: any) => {
+                                domEvent.stopPropagation();
+                                handleOpenEditModal(project);
+                              },
+                            },
+                            {
+                              key: "delete",
+                              label: (
+                                <span>
+                                  <DeleteOutlined style={{ marginRight: 4 }} />
+                                  {t.projects.deleteProject}
+                                </span>
+                              ),
+                              danger: true,
+                              onClick: ({ domEvent }: any) => {
+                                domEvent.stopPropagation();
+                                void handleDeleteProject(project.id);
+                              },
+                            },
+                          ]
+                        : []),
+                    ],
+                  }}
+                >
+                  <Button
+                    type="text"
+                    icon={<MoreVertical size={16} />}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </Dropdown>
+              </div>
+
+              <Typography.Title level={5} style={{ marginBottom: 4 }}>
+                {project.name}
+              </Typography.Title>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                {t.projects.dueDate}: {formatDate(project.dueDate)}
+              </Typography.Text>
+
+              <div style={{ marginTop: 12 }}>
+                <Typography.Text style={{ fontSize: 12 }}>
+                  {t.projects.progress}: {project.progress}%
+                </Typography.Text>
+                <Progress
+                  percent={project.progress}
+                  size="small"
+                  showInfo={false}
+                  strokeColor={project.progress === 100 ? "#22c55e" : "#2563eb"}
+                />
+              </div>
+
+              <div
+                style={{
+                  marginTop: 14,
+                  paddingTop: 10,
+                  borderTop: "1px solid #f1f5f9",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <Avatar.Group size="small" max={{ count: 3 }}>
+                  {project.memberAvatars.map((member) => (
+                    <Avatar key={member.id} src={member.avatar || undefined}>
+                      {member.name?.[0]?.toUpperCase() ?? "U"}
+                    </Avatar>
+                  ))}
+                </Avatar.Group>
+
+                <Tag color={statusColor(project.status)}>{project.status}</Tag>
+              </div>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Space orientation="vertical" size={10} style={{ width: "100%" }}>
+          {filteredProjects.map((project) => (
+            <Card
+              key={project.id}
+              hoverable
+              onClick={() => router.push(`/projects/${project.id}`)}
+              styles={{ body: { padding: 14 } }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  flexWrap: "wrap",
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 220 }}>
+                  <Space align="start" size={10}>
+                    <div
+                      style={{
+                        width: 34,
+                        height: 34,
+                        borderRadius: 8,
+                        background: "#eff6ff",
+                        color: "#2563eb",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
                       }}
                     >
-                      <MoreVertical className="w-5 h-5" />
-                    </button>
-                    {openDropdownId === project.id && (
-                      <div
-                        className="absolute right-0 mt-2 w-32 bg-white border border-gray-200 rounded-lg shadow-lg z-10"
-                        onClick={(e) => e.preventDefault()}
+                      <FolderGit2 size={18} />
+                    </div>
+                    <Space orientation="vertical" size={2}>
+                      <Typography.Text strong>{project.name}</Typography.Text>
+                      <Typography.Text
+                        type="secondary"
+                        style={{ fontSize: 12 }}
                       >
-                        <button
-                          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50 rounded-lg"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            handleDeleteProject(project.id);
-                          }}
-                        >
-                          {t.projects.deleteProject}
-                        </button>
-                      </div>
-                    )}
+                        {t.projects.dueDate}: {formatDate(project.dueDate)}
+                      </Typography.Text>
+                    </Space>
+                  </Space>
+
+                  <div style={{ marginTop: 10 }}>
+                    <Progress
+                      percent={project.progress}
+                      size="small"
+                      strokeColor={
+                        project.progress === 100 ? "#22c55e" : "#2563eb"
+                      }
+                    />
                   </div>
-                )}
-              </div>
-
-              <h3 className="text-lg font-bold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
-                {project.name}
-              </h3>
-              <p className="text-sm text-gray-500 mb-4">
-                {t.projects.dueDate}:{" "}
-                {project.dueDate
-                  ? new Date(project.dueDate).toLocaleDateString("th-TH", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })
-                  : t.projects.noDueDate}
-              </p>
-
-              <div className="space-y-2">
-                <div className="flex justify-between items-center text-sm">
-                  <span className="font-medium text-gray-700">
-                    {t.projects.progress}
-                  </span>
-                  <span className="text-gray-600">{project.progress}%</span>
                 </div>
-                <div className="w-full bg-gray-100 rounded-full h-2.5">
-                  <div
-                    className={`h-2.5 rounded-full ${project.progress === 100 ? "bg-green-500" : "bg-blue-600"}`}
-                    style={{ width: `${project.progress}%` }}
-                  ></div>
-                </div>
-              </div>
 
-              <div className="mt-6 pt-4 border-t border-gray-50 flex justify-between items-center">
-                <div className="flex -space-x-2">
-                  {[...Array(Math.min(project.members, 3))].map((_, i) => (
-                    <div
-                      key={i}
-                      className="w-8 h-8 rounded-full bg-blue-100 border-2 border-white flex items-center justify-center text-xs font-medium text-blue-700"
-                    >
-                      U{i + 1}
-                    </div>
-                  ))}
-                  {project.members > 3 && (
-                    <div className="w-8 h-8 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-xs font-medium text-gray-600">
-                      +{project.members - 3}
-                    </div>
-                  )}
-                </div>
-                <span
-                  className={`px-2.5 py-1 text-xs font-medium rounded-full ${
-                    project.status === "Done"
-                      ? "bg-green-100 text-green-700"
-                      : project.status === "Planning"
-                        ? "bg-yellow-100 text-yellow-700"
-                        : "bg-blue-100 text-blue-700"
-                  }`}
-                >
-                  {project.status}
-                </span>
+                <Space>
+                  <Tag color={statusColor(project.status)}>
+                    {project.status}
+                  </Tag>
+                  <Dropdown
+                    trigger={["click"]}
+                    menu={{
+                      items: [
+                        {
+                          key: "viewTasks",
+                          label: t.projects.viewTasks,
+                          onClick: ({ domEvent }) => {
+                            domEvent.stopPropagation();
+                            router.push(`/projects/${project.id}`);
+                          },
+                        },
+                        {
+                          key: "viewTimeline",
+                          label: t.projects.viewTimeline,
+                          onClick: ({ domEvent }) => {
+                            domEvent.stopPropagation();
+                            router.push(`/projects/${project.id}/timeline`);
+                          },
+                        },
+                        ...(project.canDelete
+                          ? [
+                              {
+                                key: "edit",
+                                label: t.projects.editProject,
+                                onClick: ({ domEvent }: any) => {
+                                  domEvent.stopPropagation();
+                                  handleOpenEditModal(project);
+                                },
+                              },
+                              {
+                                key: "delete",
+                                label: t.projects.deleteProject,
+                                danger: true,
+                                onClick: ({ domEvent }: any) => {
+                                  domEvent.stopPropagation();
+                                  void handleDeleteProject(project.id);
+                                },
+                              },
+                            ]
+                          : []),
+                      ],
+                    }}
+                  >
+                    <Button
+                      type="text"
+                      icon={<MoreVertical size={16} />}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </Dropdown>
+                </Space>
               </div>
-            </Link>
-          ))
-        )}
-      </div>
-
-      {/* Create Project Modal */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex mt-0 items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-gray-900">
-                {t.projects.modal.title}
-              </h3>
-              <button
-                onClick={() => setIsCreateModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t.projects.modal.nameLabel}{" "}
-                  <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={newProjectName}
-                  onChange={(e) => setNewProjectName(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  placeholder={t.projects.modal.namePlaceholder}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {t.projects.modal.dueDateLabel}
-                </label>
-                <input
-                  type="date"
-                  value={newProjectDueDate}
-                  onChange={(e) => setNewProjectDueDate(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-6">
-                <button
-                  onClick={() => setIsCreateModalOpen(false)}
-                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition-colors"
-                >
-                  {t.common.cancel}
-                </button>
-                <button
-                  onClick={handleCreateProject}
-                  disabled={!newProjectName.trim()}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {t.projects.modal.submit}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+            </Card>
+          ))}
+        </Space>
       )}
-    </div>
+
+      <Modal
+        open={isCreateModalOpen}
+        title={t.projects.modal.title}
+        okText={t.projects.modal.submit}
+        cancelText={t.common.cancel}
+        onCancel={() => setIsCreateModalOpen(false)}
+        onOk={() => void handleCreateProject()}
+        okButtonProps={{ disabled: !newProjectName.trim() }}
+      >
+        <Space
+          orientation="vertical"
+          size={12}
+          style={{ width: "100%", marginTop: 8 }}
+        >
+          <Space orientation="vertical" size={4} style={{ width: "100%" }}>
+            <Typography.Text>{t.projects.modal.nameLabel}</Typography.Text>
+            <Input
+              value={newProjectName}
+              onChange={(e) => setNewProjectName(e.target.value)}
+              placeholder={t.projects.modal.namePlaceholder}
+            />
+          </Space>
+
+          <Space orientation="vertical" size={4} style={{ width: "100%" }}>
+            <Typography.Text>{t.projects.modal.dueDateLabel}</Typography.Text>
+            <DatePicker
+              style={{ width: "100%" }}
+              value={newProjectDueDate ? dayjs(newProjectDueDate) : null}
+              allowClear
+              onChange={(value) =>
+                setNewProjectDueDate(value ? value.format("YYYY-MM-DD") : "")
+              }
+            />
+          </Space>
+        </Space>
+      </Modal>
+
+      <Modal
+        open={isEditModalOpen}
+        title={t.projects.editModal.title}
+        okText={t.projects.editModal.submit}
+        cancelText={t.common.cancel}
+        onCancel={closeEditModal}
+        onOk={() => void handleUpdateProject()}
+        okButtonProps={{ disabled: !editProjectName.trim() }}
+      >
+        <Space
+          orientation="vertical"
+          size={12}
+          style={{ width: "100%", marginTop: 8 }}
+        >
+          <Space orientation="vertical" size={4} style={{ width: "100%" }}>
+            <Typography.Text>{t.projects.modal.nameLabel}</Typography.Text>
+            <Input
+              value={editProjectName}
+              onChange={(e) => setEditProjectName(e.target.value)}
+              placeholder={t.projects.modal.namePlaceholder}
+            />
+          </Space>
+
+          <Space orientation="vertical" size={4} style={{ width: "100%" }}>
+            <Typography.Text>{t.projects.modal.dueDateLabel}</Typography.Text>
+            <DatePicker
+              style={{ width: "100%" }}
+              value={editProjectDueDate ? dayjs(editProjectDueDate) : null}
+              onChange={(value) =>
+                setEditProjectDueDate(value ? value.format("YYYY-MM-DD") : "")
+              }
+            />
+          </Space>
+        </Space>
+      </Modal>
+    </Space>
   );
 }

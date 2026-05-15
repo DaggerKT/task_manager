@@ -1,9 +1,9 @@
-import { PrismaClient } from '../generated/prisma';
-import { Pool } from 'pg';
-import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from "../generated/prisma";
+import { Pool } from "pg";
+import { PrismaPg } from "@prisma/adapter-pg";
 
 const connectionString = `${process.env.DATABASE_URL}`;
-const pool = new Pool({ connectionString, options: '-c client_encoding=UTF8' });
+const pool = new Pool({ connectionString, options: "-c client_encoding=UTF8" });
 const adapter = new PrismaPg(pool);
 
 const prismaClientSingleton = () => {
@@ -16,17 +16,15 @@ declare const globalThis: {
 
 const cachedClient = globalThis.prismaGlobal;
 const shouldRecreateClient =
-  process.env.NODE_ENV !== 'production' &&
+  process.env.NODE_ENV !== "production" &&
   !!cachedClient &&
-  (
-    !(cachedClient as unknown as { invitation?: unknown }).invitation ||
-    !(cachedClient as unknown as { taskAssignee?: unknown }).taskAssignee
-  );
+  (!(cachedClient as unknown as { invitation?: unknown }).invitation ||
+    !(cachedClient as unknown as { taskAssignee?: unknown }).taskAssignee);
 
 const prisma = shouldRecreateClient
   ? prismaClientSingleton()
-  : cachedClient ?? prismaClientSingleton();
+  : (cachedClient ?? prismaClientSingleton());
 
 export default prisma;
 
-if (process.env.NODE_ENV !== 'production') globalThis.prismaGlobal = prisma;
+if (process.env.NODE_ENV !== "production") globalThis.prismaGlobal = prisma;

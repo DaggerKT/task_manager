@@ -2,8 +2,17 @@ import KanbanBoard from "./KanbanBoard";
 import { getProjectData } from "@/actions/project";
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
+import { UserProvider } from "@/contexts/UserContext";
+import dayjs from "dayjs";
 
-export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+const relativeTime = require("dayjs/plugin/relativeTime");
+dayjs.extend(relativeTime);
+
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
   const { project, steps, tasks } = await getProjectData(id);
 
@@ -12,8 +21,9 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const cookieStore = await cookies();
   const currentUserId = cookieStore.get("user_id")?.value || "";
 
-  const formattedTasks = tasks.map(t => ({
+  const formattedTasks = tasks.map((t) => ({
     id: t.id,
+    order: t.order,
     title: t.title,
     status: t.stepId,
     type: t.type,
@@ -28,22 +38,27 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     creatorAvatarUrl: t.creator?.avatar || "",
     description: t.content || "",
     comments: t.comments.length,
-    commentList: t.comments.map(c => ({
+    commentList: t.comments.map((c) => ({
       id: c.id,
       text: c.content,
-      authorName: c.user?.name || 'Unknown User',
-      author: c.user?.name?.[0] || 'U',
-      avatarUrl: c.user?.avatar || '',
-      timestamp: new Date(c.createdAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
-    }))
+      authorName: c.user?.name || "Unknown User",
+      author: c.user?.name?.[0] || "U",
+      avatarUrl: c.user?.avatar || "",
+      timestamp: dayjs(c.createdAt).locale("th").fromNow(),
+    })),
+    isUrgent: t.isUrgent || false,
+    startDate: t.startDate ? t.startDate.toISOString() : null,
+    dueDate: t.dueDate ? t.dueDate.toISOString() : null,
   }));
 
   return (
-    <KanbanBoard 
-      initialProject={project} 
-      initialSteps={steps} 
-      initialTasks={formattedTasks}
-      currentUserId={currentUserId}
-    />
+    <UserProvider currentUserId={currentUserId}>
+      <KanbanBoard
+        initialProject={project}
+        initialSteps={steps}
+        initialTasks={formattedTasks}
+        currentUserId={currentUserId}
+      />
+    </UserProvider>
   );
 }

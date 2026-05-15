@@ -1,13 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { usePathname } from "next/navigation";
+import { Layout } from "antd";
 import { Sidebar } from "@/components/Sidebar";
 import { Topbar } from "@/components/Topbar";
 import { RealtimeClient } from "@/components/RealtimeClient";
 
 export function AppLayoutManager({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
   // ตรวจสอบว่าเป็นหน้า /login หรือไม่
   const isLoginPage = pathname === "/login";
 
@@ -18,13 +21,25 @@ export function AppLayoutManager({ children }: { children: React.ReactNode }) {
 
   // หน้าอื่นๆ แสดง Sidebar และ Topbar ตามปกติ
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <Layout style={{ minHeight: "100vh", background: "#f5f7fb" }}>
       <RealtimeClient />
-      <Sidebar />
-      <main className="flex-1 ml-64 flex flex-col h-screen overflow-hidden">
+      <Sidebar
+        isCollapsed={isSidebarCollapsed}
+        onToggle={() => setIsSidebarCollapsed((prev) => !prev)}
+      />
+      <Layout
+        style={{
+          marginLeft: isSidebarCollapsed ? 80 : 256,
+          transition: "margin-left 0.2s",
+          minHeight: "100vh",
+          background: "#f5f7fb",
+        }}
+      >
         <Topbar />
-        <div className="flex-1 overflow-auto p-6">{children}</div>
-      </main>
-    </div>
+        <Layout.Content style={{ padding: 24, overflow: "auto" }}>
+          {children}
+        </Layout.Content>
+      </Layout>
+    </Layout>
   );
 }

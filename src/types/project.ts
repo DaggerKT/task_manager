@@ -8,6 +8,13 @@ export interface DashboardProject {
   doneTasks: number;
 }
 
+/** A compact member avatar for project cards */
+export interface ProjectMemberAvatar {
+  id: string;
+  name: string | null;
+  avatar: string | null;
+}
+
 /** Project row shown in the projects list */
 export interface ProjectItem {
   id: string;
@@ -15,6 +22,7 @@ export interface ProjectItem {
   status: string;
   progress: number;
   members: number;
+  memberAvatars: ProjectMemberAvatar[];
   dueDate: string | null;
   canDelete: boolean;
 }

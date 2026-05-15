@@ -1,119 +1,140 @@
 import { useState } from "react";
-import { X } from "lucide-react";
-import type { Column, ColorOption } from "@/types/kanban";
+import {
+  Button,
+  ColorPicker,
+  Input,
+  Modal,
+  Select,
+  Space,
+  Typography,
+} from "antd";
+import { useLanguage } from "@/contexts/LanguageContext";
+import type { Column } from "@/types/kanban";
+import { COLOR_OPTIONS } from "@/utils/kanban";
 
 interface Props {
   isOpen: boolean;
-  onClose: () => void;
+  setIsAddModalOpen: (open: boolean) => void;
   columns: Column[];
-  colorOptions: ColorOption[];
-  onAddColumn: (title: string, colorId: string, insertAfterId: string) => void;
+  handleSubmit: () => void;
+  newColTitle: string;
+  setNewColTitle: (title: string) => void;
+  newColColor: string;
+  setNewColColor: (color: string) => void;
+  insertAfterId: string;
+  setInsertAfterId: (id: string) => void;
 }
 
-export default function AddColumnModal({ isOpen, onClose, columns, colorOptions, onAddColumn }: Props) {
-  const [newColTitle, setNewColTitle] = useState("");
-  const [newColColor, setNewColColor] = useState("#3b82f6");
-  // ใส่ค่า Default ขั้นต้นเป็น "todo" หรือถ้ามีการเปลี่ยนแปลงจะค่อยว่ากันตอน Submit
-  const [insertAfterId, setInsertAfterId] = useState("todo");
-
-  // เพื่อป้องกัน Warning setState ภายใน useEffect เราใช้ onOpen handler แทน หรือแค่ default เวลาเลือก
-  const defaultInsertAfterId = columns.length > 1 ? columns[columns.length - 2].id : "todo";
-
-  if (!isOpen) return null;
-
-  const handleSubmit = () => {
-    if (!newColTitle.trim()) return;
-    onAddColumn(newColTitle, newColColor, insertAfterId === "todo" ? defaultInsertAfterId : insertAfterId);
-    setNewColTitle("");
-    setNewColColor("#3b82f6");
-    setInsertAfterId("todo"); // reset form
-  };
+export default function AddColumnModal({
+  isOpen,
+  setIsAddModalOpen,
+  columns,
+  handleSubmit,
+  newColTitle,
+  setNewColTitle,
+  newColColor,
+  setNewColColor,
+  insertAfterId,
+  setInsertAfterId,
+}: Props) {
+  const { t } = useLanguage();
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden relative">
-        <div className="flex justify-between items-center p-5 border-b border-gray-100">
-          <h2 className="text-lg font-bold text-gray-900">เพิ่มขั้นตอนใหม่</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        
-        <div className="p-6 space-y-5">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">ชื่อขั้นตอน</label>
-            <input 
-              type="text" 
-              value={newColTitle}
-              onChange={(e) => setNewColTitle(e.target.value)}
-              placeholder="เช่น ตรวจสอบโค้ด, รออนุมัติ..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">เลือกสัญลักษณ์สี หรือกำหนดเอง</label>
-            <div className="flex gap-3 items-center flex-wrap">
-              {colorOptions.map((color) => (
-                <button
-                  key={color.id}
-                  onClick={() => setNewColColor(color.color)}
-                  className={`w-8 h-8 rounded-full ring-offset-2 transition-all ${newColColor === color.color ? 'ring-2 ring-gray-400 scale-110 shadow-md' : 'hover:scale-105 shadow-sm'}`}
-                  style={{ backgroundColor: color.color }}
-                  title={color.label}
-                />
-              ))}
-              <div className="w-px h-8 bg-gray-200 mx-1 border-none"></div>
-              <div className="flex items-center gap-2">
-                <div 
-                  className="w-8 h-8 rounded-full ring-offset-2 transition-all ring-2 ring-gray-200 overflow-hidden relative shadow-sm"
-                  style={{ backgroundColor: newColColor }}
-                >
-                  <input 
-                    type="color" 
-                    value={newColColor}
-                    onChange={(e) => setNewColColor(e.target.value)}
-                    className="absolute inset-0 w-12 h-12 -top-2 -left-2 cursor-pointer opacity-0"
-                    title="เลือกสีที่ต้องการ"
-                  />
-                </div>
-                <span className="text-xs text-gray-500 font-mono bg-gray-100 px-2 py-1 rounded">
-                  {newColColor.toUpperCase()}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">ตำแหน่ง (ต้องการให้อยู่หลังช่องไหน)</label>
-            <select 
-              value={insertAfterId === "todo" ? defaultInsertAfterId : insertAfterId}
-              onChange={(e) => setInsertAfterId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-            >
-              {columns.slice(0, -1).map(col => (
-                <option key={col.id} value={col.id}>{col.title}</option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-500 mt-2">
-              * จะถูกแทรกไว้ตรงกลาง ไม่สามารถไปอยู่หลัง &quot;เสร็จสิ้น&quot; ได้
-            </p>
-          </div>
-        </div>
-
-        <div className="p-5 border-t border-gray-100 flex justify-end gap-3 bg-gray-50">
-          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors">
-            ยกเลิก
-          </button>
-          <button 
-            onClick={handleSubmit}
-            disabled={!newColTitle.trim()}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+    <Modal
+      title={t.projects.addStep}
+      open={isOpen}
+      onCancel={() => setIsAddModalOpen(false)}
+      footer={[
+        <Button key="cancel" onClick={() => setIsAddModalOpen(false)}>
+          {t.common.cancel}
+        </Button>,
+        <Button
+          key="submit"
+          type="primary"
+          onClick={handleSubmit}
+          disabled={!newColTitle.trim()}
+        >
+          {t.kanban.ok}
+        </Button>,
+      ]}
+      centered
+      destroyOnHidden
+    >
+      <Space
+        direction="vertical"
+        size="large"
+        style={{ width: "100%", paddingTop: "10px" }}
+      >
+        {/* ชื่อ Column */}
+        <div>
+          <Typography.Text
+            strong
+            style={{ display: "block", marginBottom: "8px" }}
           >
-            ตกลง
-          </button>
+            {t.projects.columnName}
+          </Typography.Text>
+          <Input
+            placeholder="เช่น ตรวจสอบโค้ด, รออนุมัติ..."
+            value={newColTitle}
+            onChange={(e) => setNewColTitle(e.target.value)}
+            onPressEnter={newColTitle.trim() ? handleSubmit : undefined}
+            autoFocus
+          />
         </div>
-      </div>
-    </div>
+
+        {/* เลือกสี */}
+        <div>
+          <Typography.Text
+            strong
+            style={{ display: "block", marginBottom: "8px" }}
+          >
+            {t.kanban.colorPickerLabel}
+          </Typography.Text>
+          <Space align="center">
+            <ColorPicker
+              value={newColColor}
+              onChange={(color) => setNewColColor(color.toHexString())}
+              presets={[
+                {
+                  label: "Recommended",
+                  colors: COLOR_OPTIONS.map((opt) => opt.color),
+                },
+              ]}
+              showText
+            />
+            <Typography.Text type="secondary" style={{ fontSize: "12px" }}>
+              <Typography.Text code>
+                {newColColor.toUpperCase()}
+              </Typography.Text>
+            </Typography.Text>
+          </Space>
+        </div>
+
+        {/* เลือกตำแหน่ง */}
+        <div>
+          <Typography.Text
+            strong
+            style={{ display: "block", marginBottom: "8px" }}
+          >
+            {t.kanban.positionLabel}
+          </Typography.Text>
+          <Select
+            style={{ width: "100%" }}
+            value={insertAfterId}
+            onChange={(value) => setInsertAfterId(value)}
+            options={columns.slice(0, -1).map((col) => ({
+              label: col.title,
+              value: col.id,
+            }))}
+          />
+          <Typography.Text
+            type="secondary"
+            style={{ fontSize: "12px", marginTop: "8px", display: "block" }}
+          >
+            {t.kanban.positionNote}
+          </Typography.Text>
+        </div>
+      </Space>
+    </Modal>
   );
 }

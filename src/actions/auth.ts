@@ -1,12 +1,22 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { latin1Safe } from "@/utils/encoding";
 import type { EmployeeData } from "@/types/employee";
 
+async function shouldUseSecureCookie(): Promise<boolean> {
+  if (process.env.NODE_ENV !== "production") return false;
+
+  const headerStore = await headers();
+  const forwardedProto = headerStore.get("x-forwarded-proto");
+  return forwardedProto === "https";
+}
+
 export async function syncUserToDatabase(empData: EmployeeData) {
   try {
+    const secureCookie = await shouldUseSecureCookie();
+
     const safeName = latin1Safe(empData.empName, empData.empUserName);
     const safePosition = latin1Safe(
       empData.empPositionName,
@@ -17,18 +27,26 @@ export async function syncUserToDatabase(empData: EmployeeData) {
       empData.empDeptShortName || "",
     );
 
+    let dataUpdate: any = {
+      empNo: empData.empNo,
+      name: safeName,
+      email: empData.empEmail,
+      position: safePosition,
+      department: safeDepartment,
+    };
+
+    if (empData.empImg) {
+      dataUpdate = {
+        ...dataUpdate,
+        avatar: empData.empImg,
+      };
+    }
+
     const user = await prisma.user.upsert({
       where: {
         username: empData.empUserName,
       },
-      update: {
-        empNo: empData.empNo,
-        name: safeName,
-        email: empData.empEmail,
-        position: safePosition,
-        department: safeDepartment,
-        avatar: empData.empImg || null,
-      },
+      update: dataUpdate,
       create: {
         username: empData.empUserName,
         empNo: empData.empNo,
@@ -44,7 +62,7 @@ export async function syncUserToDatabase(empData: EmployeeData) {
     const cookieStore = await cookies();
     cookieStore.set("user_id", user.id, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: secureCookie,
       sameSite: "lax",
       path: "/",
       maxAge: 60 * 60 * 24 * 7, // 7 days
@@ -64,10 +82,12 @@ export async function syncUserToDatabase(empData: EmployeeData) {
         });
 
         if (existingUser) {
+          const secureCookie = await shouldUseSecureCookie();
+
           const cookieStore = await cookies();
           cookieStore.set("user_id", existingUser.id, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
+            secure: secureCookie,
             sameSite: "lax",
             path: "/",
             maxAge: 60 * 60 * 24 * 7,

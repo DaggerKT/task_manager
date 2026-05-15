@@ -1,0 +1,91 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  # ── PostgreSQL ───────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-taskmanager}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-taskmanager}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app_network
+
+  # ── Realtime WebSocket Server ─────────────────────────────────────────────────
+  realtime:
+    build:
+      context: .
+      dockerfile: Dockerfile.realtime
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      REALTIME_PORT: 3001
+    ports:
+      - "3001:3001"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3001/ || true"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - app_network
+
+  # ── Next.js App ────────────────────────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-taskmanager}
+      REALTIME_SERVER_URL: http://realtime:3001
+      NODE_ENV: production
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      realtime:
+        condition: service_started
+    networks:
+      - app_network
+
+  # ── Prisma Migrate (รันครั้งเดียวตอน deploy) ──────────────────────────────────
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    logging: *default-logging
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-taskmanager}
+    command: sh -c "npx prisma migrate deploy"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - app_network
+
+volumes:
+  pg_data:
+
+networks:
+  app_network:
+    driver: bridge

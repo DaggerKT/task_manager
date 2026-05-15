@@ -83,6 +83,7 @@ export interface BoardComment {
 
 export interface BoardTask {
   id: string;
+  order?: number;
   status: string;
   type: string;
   title: string;
@@ -94,6 +95,9 @@ export interface BoardTask {
   creatorId?: string;
   creatorName?: string;
   creatorAvatarUrl?: string;
+  isUrgent?: boolean;
+  startDate?: string | null;
+  dueDate?: string | null;
   [key: string]: unknown;
 }
 

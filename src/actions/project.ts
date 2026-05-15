@@ -12,11 +12,26 @@ async function getCurrentUserId(): Promise<string | null> {
   return cookieStore.get("user_id")?.value ?? null;
 }
 
-export async function getProjects() {
+export async function getProjects(): Promise<{
+  projects: Awaited<ReturnType<typeof prisma.project.findMany<{
+    include: {
+      team: {
+        include: {
+          members: { include: { user: { select: { id: true; name: true; avatar: true } } } };
+          _count: { select: { members: true } };
+        };
+      };
+      _count: { select: { tasks: true } };
+      tasks: { where: { step: { title: string } } };
+    };
+    orderBy: { createdAt: "desc" };
+  }>>>;
+  currentUserId: string | null;
+}> {
   try {
     const userId = await getCurrentUserId();
     if (!userId) {
-      return [];
+      return { projects: [], currentUserId: null };
     }
 
     const projects = await prisma.project.findMany({
@@ -31,8 +46,11 @@ export async function getProjects() {
         team: {
           include: {
             members: {
-              where: { userId },
-              select: { role: true },
+              include: {
+                user: {
+                  select: { id: true, name: true, avatar: true },
+                },
+              },
             },
             _count: {
               select: { members: true },
@@ -48,10 +66,10 @@ export async function getProjects() {
       },
       orderBy: { createdAt: "desc" },
     });
-    return projects;
+    return { projects, currentUserId: userId };
   } catch (error) {
     console.error("Error fetching projects:", error);
-    return [];
+    return { projects: [] as never[], currentUserId: null };
   }
 }
 
@@ -170,11 +188,68 @@ export async function deleteProject(id: string) {
   }
 }
 
+export async function updateProject(
+  id: string,
+  name: string,
+  dueDate: string | null,
+) {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return { success: false, error: "Unauthorized. Please login again." };
+    }
+
+    const project = await prisma.project.findFirst({
+      where: {
+        id,
+        team: {
+          members: {
+            some: {
+              userId,
+              role: "ADMIN",
+            },
+          },
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!project) {
+      return {
+        success: false,
+        error: "Forbidden. Only project owners/admins can edit this project.",
+      };
+    }
+
+    const safeProjectName = latin1Safe(name, "Untitled Project");
+
+    const updatedProject = await prisma.project.update({
+      where: { id: project.id },
+      data: {
+        name: safeProjectName,
+        dueDate: dueDate ? new Date(dueDate) : null,
+      },
+    });
+
+    revalidatePath("/projects");
+    revalidatePath(`/projects/${id}`);
+    await publishRealtimeEvent({
+      type: "project.updated",
+      payload: { projectId: id },
+    });
+
+    return { success: true, project: updatedProject };
+  } catch (error) {
+    console.error("Error updating project:", error);
+    return { success: false, error: "Failed to update project" };
+  }
+}
+
 export async function getProjectData(projectId: string) {
   try {
     const userId = await getCurrentUserId();
     if (!userId) {
-      return { project: null, steps: [], tasks: [] };
+      return { project: null, steps: [], tasks: [], currentUserId: null };
     }
 
     const project = await prisma.project.findFirst({
@@ -204,6 +279,11 @@ export async function getProjectData(projectId: string) {
 
     const tasks = await prisma.task.findMany({
       where: { projectId },
+      orderBy: [
+        { stepId: 'asc' },
+        { order: 'asc' },
+        { createdAt: 'asc' },
+      ],
       include: {
         assignees: {
           include: { user: true },
@@ -216,9 +296,106 @@ export async function getProjectData(projectId: string) {
       },
     });
 
-    return { project, steps, tasks };
+    return { project, steps, tasks, currentUserId: userId };
   } catch (error) {
     console.error("Error fetching project data:", error);
-    return { project: null, steps: [], tasks: [] };
+    return { project: null, steps: [], tasks: [], currentUserId: null };
+  }
+}
+
+export async function removeTeamMember(projectId: string, targetUserId: string) {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return { success: false, error: "Unauthorized. Please login again." };
+    }
+
+    if (userId === targetUserId) {
+      return { success: false, error: "You cannot remove yourself." };
+    }
+
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { id: true, teamId: true },
+    });
+    if (!project) {
+      return { success: false, error: "Project not found." };
+    }
+
+    const requesterMember = await prisma.teamMember.findUnique({
+      where: {
+        userId_teamId: {
+          userId,
+          teamId: project.teamId,
+        },
+      },
+      select: { role: true },
+    });
+
+    if (!requesterMember || requesterMember.role !== "ADMIN") {
+      return {
+        success: false,
+        error: "Forbidden. Only team admins can remove members.",
+      };
+    }
+
+    const targetMember = await prisma.teamMember.findUnique({
+      where: {
+        userId_teamId: {
+          userId: targetUserId,
+          teamId: project.teamId,
+        },
+      },
+      select: { userId: true, role: true },
+    });
+
+    if (!targetMember) {
+      return { success: false, error: "Team member not found." };
+    }
+
+    if (targetMember.role === "ADMIN") {
+      const adminCount = await prisma.teamMember.count({
+        where: {
+          teamId: project.teamId,
+          role: "ADMIN",
+        },
+      });
+
+      if (adminCount <= 1) {
+        return {
+          success: false,
+          error: "Cannot remove the last admin from the team.",
+        };
+      }
+    }
+
+    await prisma.$transaction([
+      prisma.taskAssignee.deleteMany({
+        where: {
+          userId: targetUserId,
+          task: { projectId },
+        },
+      }),
+      prisma.teamMember.delete({
+        where: {
+          userId_teamId: {
+            userId: targetUserId,
+            teamId: project.teamId,
+          },
+        },
+      }),
+    ]);
+
+    revalidatePath("/projects");
+    revalidatePath(`/projects/${projectId}`);
+    await publishRealtimeEvent({
+      type: "team.member.removed",
+      payload: { projectId, teamId: project.teamId, removedUserId: targetUserId },
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error removing team member:", error);
+    return { success: false, error: "Failed to remove team member" };
   }
 }

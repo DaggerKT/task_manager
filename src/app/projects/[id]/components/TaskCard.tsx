@@ -9,7 +9,6 @@ interface Props {
 }
 
 export default function TaskCard({ task, onDragStart, onClick, onDelete }: Props) {
-  // If we had columns passed to TaskCard, we could lookup task.status to display it colored.
   return (
     <div
       draggable

@@ -26,9 +26,33 @@ export function RealtimeClient() {
     const connect = () => {
       ws = new WebSocket(wsUrl);
 
-      ws.onmessage = () => {
-        if (document.visibilityState === "visible") {
-          scheduleRefresh();
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+
+          // Dispatch generic realtime event for feature-level subscribers.
+          window.dispatchEvent(
+            new CustomEvent("realtime:event", {
+              detail: message,
+            }),
+          );
+          
+          // Handle notification.created events
+          if (message.type === 'notification.created') {
+            // Dispatch custom event for components to listen
+            window.dispatchEvent(
+              new CustomEvent('notification:created', {
+                detail: message.payload,
+              })
+            );
+          }
+          
+          // Schedule page refresh for data updates
+          if (document.visibilityState === "visible") {
+            scheduleRefresh();
+          }
+        } catch (error) {
+          console.error('Error parsing realtime message:', error);
         }
       };
 

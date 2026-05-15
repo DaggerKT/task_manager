@@ -1,17 +1,30 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LogOut, Bell } from "lucide-react";
-import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { BellOutlined, LeftOutlined, LogoutOutlined } from "@ant-design/icons";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  Avatar,
+  Badge,
+  Button,
+  Layout,
+  Skeleton,
+  Space,
+  Typography,
+} from "antd";
 import { fetchUserInfo } from "@/apis/auth";
 import { getPendingInvitationCount } from "@/actions/invitation";
+import { getCurrentUserAvatar } from "@/actions/user";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useCurrentUser } from "@/contexts/UserContext";
+import NotificationBell from "@/components/NotificationBell";
 import type { UserInfo } from "@/types/employee";
+import { imageConfigDefault } from "next/dist/shared/lib/image-config";
 
 export function Topbar() {
   const router = useRouter();
   const { t } = useLanguage();
+  const { currentUserId } = useCurrentUser();
   const [user, setUser] = useState<UserInfo | null>(null);
   const [pendingInvitations, setPendingInvitations] = useState(0);
 
@@ -25,9 +38,21 @@ export function Topbar() {
       try {
         const res = await fetchUserInfo(token);
         if (res && res.empData) {
-          setUser(res.empData);
-        }
+          const apiUser = res.empData;
+          let resolvedEmpImg = apiUser.empImg;
 
+          if (!resolvedEmpImg) {
+            const dbAvatar = await getCurrentUserAvatar();
+            if (dbAvatar) {
+              resolvedEmpImg = dbAvatar;
+            }
+          }
+
+          setUser({
+            ...apiUser,
+            empImg: resolvedEmpImg || "",
+          });
+        }
       } catch (err) {
         console.error("Error fetching user info:", err);
       }
@@ -70,71 +95,88 @@ export function Topbar() {
     router.push("/login");
   };
 
+  const pathname = usePathname();
+
+  const hiddenBackButton = () => {
+    const segments = pathname.split("/").filter(Boolean);
+    return segments.length <= 1;
+  };
+
   return (
-    <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
-      <div>
-        <h1 className="text-xl font-bold tracking-tight text-gray-800">
+    <Layout.Header
+      style={{
+        height: 64,
+        background: "#ffffff",
+        borderBottom: "1px solid #e5e7eb",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "0 24px",
+        position: "sticky",
+        top: 0,
+        zIndex: 100,
+      }}
+    >
+      <div className="flex items-center">
+        {!hiddenBackButton() && (
+          <Button
+            type="text"
+            shape="circle"
+            icon={<LeftOutlined />}
+            onClick={() => router.back()}
+            style={{ marginRight: 4, marginTop: 4 }}
+          />
+        )}
+        <Typography.Title level={4} style={{ margin: 0 }}>
           {t.topbar.title}
-        </h1>
+        </Typography.Title>
       </div>
 
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => router.push("/notifications")}
-          className="relative p-2 rounded-lg text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-          title={t.topbar.notifications}
-        >
-          <Bell className="w-5 h-5" />
-          {pendingInvitations > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-[10px] font-semibold flex items-center justify-center">
-              {pendingInvitations > 99 ? "99+" : pendingInvitations}
-            </span>
-          )}
-        </button>
+      <Space size="middle">
+        {currentUserId && <NotificationBell userId={currentUserId} />}
+
+        {/* <Badge count={pendingInvitations > 99 ? "99+" : pendingInvitations}>
+          <Button
+            type="text"
+            shape="circle"
+            icon={<BellOutlined />}
+            onClick={() => router.push("/notifications")}
+            title={t.topbar.notifications}
+          />
+        </Badge> */}
 
         {user ? (
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold overflow-hidden">
-              {user.empImg ? (
-                <Image
-                  src={user.empImg}
-                  alt={user.empName}
-                  className="w-full h-full object-cover"
-                  width={32}
-                  height={32}
-                  unoptimized
-                />
-              ) : (
-                user.empName.charAt(0)
-              )}
+          <Space size={10}>
+            <Avatar
+              style={{ backgroundColor: "#e0ecff", color: "#1d4ed8" }}
+              src={user.empImg || undefined}
+            >
+              {user.empName.charAt(0)}
+            </Avatar>
+
+            <div style={{ lineHeight: 1.2 }}>
+              <Typography.Text strong>{user.empName}</Typography.Text>
+              <br />
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                {user.empPositionName}
+              </Typography.Text>
             </div>
-            <div className="hidden md:block">
-              <p className="text-sm font-semibold text-gray-800">
-                {user.empName}
-              </p>
-              <p className="text-xs text-gray-500">{user.empPositionName}</p>
-            </div>
-          </div>
+          </Space>
         ) : (
-          <div className="animate-pulse flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-gray-200"></div>
-            <div className="hidden md:block space-y-2">
-              <div className="h-3 w-20 bg-gray-200 rounded"></div>
-              <div className="h-2 w-16 bg-gray-200 rounded"></div>
-            </div>
-          </div>
+          <Space size={10}>
+            <Skeleton.Avatar active size="small" />
+            <Skeleton.Input active size="small" style={{ width: 120 }} />
+          </Space>
         )}
 
-        <div className="w-px h-6 bg-gray-300 mx-2"></div>
-
-        <button
+        <Button
+          type="text"
           onClick={handleLogout}
-          className="flex items-center gap-2 text-sm text-gray-600 hover:text-red-600 transition-colors"
+          icon={<LogoutOutlined />}
           title={t.topbar.logout}
-        >
-          <LogOut className="w-4 h-4" />
-        </button>
-      </div>
-    </header>
+          danger
+        />
+      </Space>
+    </Layout.Header>
   );
 }

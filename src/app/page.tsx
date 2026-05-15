@@ -8,6 +8,18 @@ import {
   MoreHorizontal,
   CheckCircle,
 } from "lucide-react";
+import {
+  Button,
+  Card,
+  Col,
+  Dropdown,
+  Progress,
+  Row,
+  Space,
+  Statistic,
+  Tag,
+  Typography,
+} from "antd";
 import { getProjects } from "@/actions/project";
 import type { DashboardProject } from "@/types/project";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -16,15 +28,12 @@ export default function DashboardPage() {
   const router = useRouter();
   const { t } = useLanguage();
   const [projects, setProjects] = useState<DashboardProject[]>([]);
-  const [openMenuProjectId, setOpenMenuProjectId] = useState<string | null>(
-    null,
-  );
 
   useEffect(() => {
     let isMounted = true;
 
     const loadProjects = async () => {
-      const dbProjects = await getProjects();
+      const { projects: dbProjects } = await getProjects();
 
       if (!isMounted) return;
 
@@ -68,21 +77,6 @@ export default function DashboardPage() {
     };
   }, []);
 
-  useEffect(() => {
-    const handleDocumentClick = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (!target.closest("[data-project-menu]")) {
-        setOpenMenuProjectId(null);
-      }
-    };
-
-    document.addEventListener("click", handleDocumentClick);
-
-    return () => {
-      document.removeEventListener("click", handleDocumentClick);
-    };
-  }, []);
-
   const totalProjects = projects.length;
   const totalTodoTasks = projects.reduce((sum, project) => {
     return sum + Math.max(project.totalTasks - project.doneTasks, 0);
@@ -92,126 +86,107 @@ export default function DashboardPage() {
   }, 0);
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Stats Cards */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-gray-500">{t.dashboard.totalProjects}</p>
-            <h3 className="text-3xl font-bold text-gray-800 mt-1">
-              {totalProjects}
-            </h3>
-          </div>
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
-            <FolderGit2 className="w-6 h-6" />
-          </div>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-gray-500">
-              {t.dashboard.todoTasks}
-            </p>
-            <h3 className="text-3xl font-bold text-gray-800 mt-1">
-              {totalTodoTasks}
-            </h3>
-          </div>
-          <div className="p-3 bg-orange-50 text-orange-600 rounded-lg">
-            <CalendarDays className="w-6 h-6" />
-          </div>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-gray-500">{t.dashboard.doneTasks}</p>
-            <h3 className="text-3xl font-bold text-gray-800 mt-1">
-              {totalDoneTasks}
-            </h3>
-          </div>
-          <div className="p-3 bg-emerald-50 text-green-600 rounded-lg">
-            <CheckCircle className="w-6 h-6" />
-          </div>
-        </div>
-      </div>
+    <Space orientation="vertical" size={20} style={{ width: "100%" }}>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} md={8}>
+          <Card>
+            <Statistic
+              title={t.dashboard.totalProjects}
+              value={totalProjects}
+              prefix={<FolderGit2 size={18} />}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} md={8}>
+          <Card>
+            <Statistic
+              title={t.dashboard.todoTasks}
+              value={totalTodoTasks}
+              prefix={<CalendarDays size={18} />}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} md={8}>
+          <Card>
+            <Statistic
+              title={t.dashboard.doneTasks}
+              value={totalDoneTasks}
+              prefix={<CheckCircle size={18} />}
+            />
+          </Card>
+        </Col>
+      </Row>
 
-      {/* Projects List */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-visible">
-        <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="font-semibold text-lg text-gray-800">{t.dashboard.recentProjects}</h3>
-          <button className="text-sm text-blue-600 hover:underline font-medium">
-            {t.dashboard.viewAll}
-          </button>
-        </div>
-
-        <div className="divide-y divide-gray-100">
+      <Card
+        title={t.dashboard.recentProjects}
+        extra={<Button type="link">{t.dashboard.viewAll}</Button>}
+      >
+        <Space orientation="vertical" size={10} style={{ width: "100%" }}>
           {projects.map((project) => (
-            <div
+            <Card
               key={project.id}
-              className="p-6 hover:bg-gray-50 transition-colors flex items-center justify-between"
+              size="small"
+              hoverable
+              style={{ borderRadius: 10 }}
+              styles={{ body: { padding: 12 } }}
               onClick={() => router.push(`/projects/${project.id}`)}
             >
-              <div className="flex-1">
-                <h4 className="text-gray-900 font-medium">{project.name}</h4>
-                <div className="flex items-center justify-end w-48 mt-2 md:mt-0 md:justify-start">
-                  <span
-                    className={`px-2.5 py-1 text-xs font-medium rounded-full mr-4 ${project.progress === 100 ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  gap: 12,
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <Typography.Text strong>{project.name}</Typography.Text>
+                  <Space
+                    orientation="vertical"
+                    size={8}
+                    style={{ width: "100%", marginTop: 8 }}
                   >
-                    {project.status}
-                  </span>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-blue-600 h-2 rounded-full"
-                      style={{ width: `${project.progress}%` }}
-                    ></div>
-                  </div>
+                    <Tag color={project.progress === 100 ? "green" : "blue"}>
+                      {project.status}
+                    </Tag>
+                    <Progress percent={project.progress} size="small" />
+                  </Space>
                 </div>
-              </div>
-              <div className="relative z-50" data-project-menu>
-                <button
-                  className="p-2 hover:bg-gray-200 rounded-md text-gray-500 transition-colors cursor-pointer"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setOpenMenuProjectId((prev) =>
-                      prev === project.id ? null : project.id,
-                    );
+
+                <Dropdown
+                  trigger={["click"]}
+                  menu={{
+                    items: [
+                      {
+                        key: "open",
+                        label: t.dashboard.openProject,
+                        onClick: () => router.push(`/projects/${project.id}`),
+                      },
+                      {
+                        key: "copy",
+                        label: t.dashboard.copyProjectId,
+                        onClick: async () => {
+                          try {
+                            await navigator.clipboard.writeText(project.id);
+                          } catch {
+                            // Ignore clipboard errors in unsupported contexts.
+                          }
+                        },
+                      },
+                    ],
                   }}
                 >
-                  <MoreHorizontal className="w-5 h-5" />
-                </button>
-                {openMenuProjectId === project.id && (
-                  <div
-                    data-project-menu
-                    className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-10 py-1"
-                  >
-                    <button
-                      className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setOpenMenuProjectId(null);
-                        router.push(`/projects/${project.id}`);
-                      }}
-                    >
-                      {t.dashboard.openProject}
-                    </button>
-                    <button
-                      className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        try {
-                          await navigator.clipboard.writeText(project.id);
-                        } catch {
-                          // Ignore clipboard errors in unsupported contexts.
-                        }
-                        setOpenMenuProjectId(null);
-                      }}
-                    >
-                      {t.dashboard.copyProjectId}
-                    </button>
-                  </div>
-                )}
+                  <Button
+                    type="text"
+                    icon={<MoreHorizontal size={18} />}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </Dropdown>
               </div>
-            </div>
+            </Card>
           ))}
-        </div>
-      </div>
-    </div>
+        </Space>
+      </Card>
+    </Space>
   );
 }

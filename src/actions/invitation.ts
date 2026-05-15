@@ -2,9 +2,11 @@
 
 import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { latin1Safe } from "@/utils/encoding";
 import { publishRealtimeEvent } from "@/lib/realtime";
+import { sendInvitationEmail } from "@/lib/mail";
 import type { Prisma } from "@/generated/prisma";
 
 type IdentifierKind = "email" | "empNo" | "username";
@@ -41,6 +43,17 @@ async function getCurrentUser() {
   return prisma.user.findUnique({ where: { id: userId } });
 }
 
+async function buildInvitationLink(invitationId: string) {
+  const headerStore = await headers();
+  const host = headerStore.get("x-forwarded-host") || headerStore.get("host");
+  const proto =
+    headerStore.get("x-forwarded-proto") ||
+    (process.env.NODE_ENV === "production" ? "https" : "http");
+
+  if (!host) return `/invite/${invitationId}`;
+  return `${proto}://${host}/invite/${invitationId}`;
+}
+
 export async function createInvitation(
   teamId: string,
   projectId: string,
@@ -61,7 +74,7 @@ export async function createInvitation(
 
     const project = await prisma.project.findFirst({
       where: { id: projectId, teamId },
-      select: { id: true },
+      select: { id: true, name: true },
     });
     if (!project) {
       return { success: false, error: "Project/team mismatch" };
@@ -130,15 +143,84 @@ export async function createInvitation(
       },
     });
 
+    const inviteLink = await buildInvitationLink(invitation.id);
     revalidatePath("/notifications");
     revalidatePath(`/projects/${projectId}`);
     await publishRealtimeEvent({
       type: "invitation.created",
       payload: { projectId, teamId, invitationId: invitation.id },
     });
-    return { success: true, invitation };
+    
+    // Send invitation email in background to keep invitation response fast.
+    if (safeEmail) {
+      const recipientName = targetUser?.name || safeEmail;
+      const projectName = project.name || "Project";
+      void sendInvitationEmail(
+        safeEmail,
+        recipientName,
+        inviter.name || inviter.username || inviter.id,
+        inviter.email || null,
+        projectName,
+        inviteLink,
+      )
+        .then((result) => {
+          if (!result.success) {
+            console.warn("Failed to send invitation email, but invitation created:", result.error);
+          }
+        })
+        .catch((err) => {
+          console.warn("Failed to send invitation email, but invitation created:", err);
+        });
+    }
+    
+    return { success: true, invitation, inviteLink };
   } catch (error) {
     console.error("Error creating invitation:", error);
+    return { success: false, error: "Failed to create invitation" };
+  }
+}
+
+export async function createOpenInvitation(teamId: string, projectId: string) {
+  try {
+    const inviter = await getCurrentUser();
+    if (!inviter) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const member = await prisma.teamMember.findFirst({
+      where: { teamId, userId: inviter.id },
+    });
+    if (!member) {
+      return { success: false, error: "You are not a member of this team" };
+    }
+
+    const project = await prisma.project.findFirst({
+      where: { id: projectId, teamId },
+      select: { id: true },
+    });
+    if (!project) {
+      return { success: false, error: "Project/team mismatch" };
+    }
+
+    const invitation = await prisma.invitation.create({
+      data: {
+        teamId,
+        projectId,
+        inviterUserId: inviter.id,
+      },
+    });
+
+    revalidatePath("/notifications");
+    revalidatePath(`/projects/${projectId}`);
+    await publishRealtimeEvent({
+      type: "invitation.created",
+      payload: { projectId, teamId, invitationId: invitation.id },
+    });
+
+    const inviteLink = await buildInvitationLink(invitation.id);
+    return { success: true, invitation, inviteLink };
+  } catch (error) {
+    console.error("Error creating open invitation:", error);
     return { success: false, error: "Failed to create invitation" };
   }
 }

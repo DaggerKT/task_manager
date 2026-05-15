@@ -1,0 +1,221 @@
+#!/bin/bash
+set -euo pipefail
+
+# Single-command production deploy:
+# - Installs required server packages if missing
+# - Verifies DNS points to this server
+# - Configures Nginx + SSL (Let's Encrypt)
+# - Builds and starts Docker services
+# - Runs Prisma migrate deploy
+
+DOMAIN="${DOMAIN:-<your-domain.com>}"
+EXTRA_DOMAINS="${EXTRA_DOMAINS:-}"
+BRANCH="${BRANCH:-main}"
+ALLOW_PRIVATE_DNS="${ALLOW_PRIVATE_DNS:-1}"
+PROJECT_DIR="$(pwd)"
+NGINX_SITE="/etc/nginx/sites-available/${DOMAIN}"
+NGINX_ENABLED="/etc/nginx/sites-enabled/${DOMAIN}"
+
+SERVER_NAMES=""
+
+append_unique_name() {
+  local name="$1"
+  [ -z "${name}" ] && return
+  case " ${SERVER_NAMES} " in
+    *" ${name} "*) ;;
+    *) SERVER_NAMES="${SERVER_NAMES} ${name}" ;;
+  esac
+}
+
+for raw_domain in ${DOMAIN} ${EXTRA_DOMAINS//,/ }; do
+  domain_trimmed="$(echo "${raw_domain}" | xargs)"
+  [ -z "${domain_trimmed}" ] && continue
+
+  append_unique_name "${domain_trimmed}"
+done
+
+SERVER_NAMES="$(echo "${SERVER_NAMES}" | xargs)"
+
+if [ "${EUID}" -ne 0 ]; then
+  SUDO="sudo"
+else
+  SUDO=""
+fi
+
+run() {
+  if [ -n "${SUDO}" ]; then
+    ${SUDO} "$@"
+  else
+    "$@"
+  fi
+}
+
+write_nginx_http_config() {
+  run tee "${NGINX_SITE}" >/dev/null <<EOF
+server {
+  listen 80;
+  listen [::]:80;
+  server_name ${SERVER_NAMES};
+
+  client_max_body_size 50M;
+
+  location /.well-known/acme-challenge/ {
+    root /var/www/certbot;
+  }
+
+  location / {
+    proxy_pass http://127.0.0.1:3000;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade \$http_upgrade;
+    proxy_set_header Connection 'upgrade';
+    proxy_set_header Host \$host;
+    proxy_set_header X-Real-IP \$remote_addr;
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto \$scheme;
+    proxy_cache_bypass \$http_upgrade;
+  }
+
+  location /realtime {
+    proxy_pass http://127.0.0.1:3001;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade \$http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host \$host;
+    proxy_set_header X-Real-IP \$remote_addr;
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto \$scheme;
+    proxy_read_timeout 86400;
+  }
+}
+EOF
+}
+
+echo "========================================"
+echo "  One-Command Production Deploy"
+echo "  Domain: ${DOMAIN}"
+echo "  Domain aliases: ${EXTRA_DOMAINS}"
+echo "  Nginx server_name: ${SERVER_NAMES}"
+echo "  Branch: ${BRANCH}"
+echo "  Dir:    ${PROJECT_DIR}"
+echo "  Allow Private DNS: ${ALLOW_PRIVATE_DNS}"
+echo "  Mode: HTTP only on port 80"
+echo "========================================"
+
+cd "${PROJECT_DIR}"
+
+# ── [0/8] Required files ──────────────────────────────────────────────────────
+if [ ! -f ".env" ]; then
+  echo "[ERROR] ไม่พบไฟล์ .env"
+  echo "        สร้างก่อนด้วย: cp .env.example .env"
+  exit 1
+fi
+
+if [ ! -f ".env.production" ]; then
+  echo "[ERROR] ไม่พบไฟล์ .env.production"
+  echo "        สร้างก่อนด้วย: cp .env.production.example .env.production"
+  exit 1
+fi
+
+# ── [1/8] Install base packages ───────────────────────────────────────────────
+echo ""
+echo "[1/8] Installing server packages (git, nginx)..."
+run apt-get update -qq
+run apt-get install -y -qq ca-certificates curl gnupg lsb-release git nginx
+echo "  Base packages OK"
+
+# ── [2/8] Install Docker + Compose plugin if missing ─────────────────────────
+echo ""
+echo "[2/8] Checking Docker..."
+if ! command -v docker >/dev/null 2>&1; then
+  echo "  Docker not found. Installing..."
+  curl -fsSL https://get.docker.com | sh
+  run systemctl enable docker
+  run systemctl start docker
+else
+  echo "  Docker already installed."
+fi
+
+if ! docker compose version >/dev/null 2>&1; then
+  echo "[ERROR] Docker Compose plugin ไม่พร้อมใช้งาน"
+  echo "        กรุณาตรวจสอบ docker installation แล้วลองใหม่"
+  exit 1
+fi
+
+# ── [3/8] Verify DNS points to this server ────────────────────────────────────
+echo ""
+echo "[3/8] Validating DNS for ${DOMAIN}..."
+DNS_IP=""
+if command -v dig >/dev/null 2>&1; then
+  DNS_IP="$(dig +short A "${DOMAIN}" | tail -n 1)"
+else
+  DNS_IP="$(getent hosts "${DOMAIN}" | awk '{print $1}' | tail -n 1)"
+fi
+
+if [ -z "${DNS_IP}" ]; then
+  echo "[ERROR] หา DNS A record ของ ${DOMAIN} ไม่เจอ"
+  echo "        ตั้ง A record ให้ชี้มายัง server ก่อน แล้วรันใหม่"
+  exit 1
+fi
+
+if [ "${ALLOW_PRIVATE_DNS}" != "1" ]; then
+  PUBLIC_IP="$(curl -fsS https://api.ipify.org || true)"
+  if [ -n "${PUBLIC_IP}" ] && [ "${DNS_IP}" != "${PUBLIC_IP}" ]; then
+    echo "[ERROR] DNS ของ ${DOMAIN} ชี้ไป ${DNS_IP} แต่เครื่องนี้คือ ${PUBLIC_IP}"
+    echo "        แก้ DNS ให้ถูกก่อน (ไม่งั้นออก SSL cert ไม่ผ่าน)"
+    echo ""
+    echo "        ถ้าต้องใช้ private DNS (192.168.x.x เป็นต้น) ใช้:"
+    echo "        sudo ALLOW_PRIVATE_DNS=1 DOMAIN=${DOMAIN} ./deploy-prod.sh"
+    exit 1
+  fi
+else
+  echo "  [WARN] ALLOW_PRIVATE_DNS=1, อนุญาต private DNS ชั่วคราว"
+fi
+
+echo "  DNS OK (${DOMAIN} -> ${DNS_IP})"
+
+# ── [4/8] Pull latest code ────────────────────────────────────────────────────
+echo ""
+echo "[4/8] Pulling latest code..."
+# echo "Skipping git pull เพราะสมมติว่า deploy-prod.sh จะรันบน CI/CD ที่โค้ดถูก clone มาใหม่ทุกครั้งอยู่แล้ว"
+# git fetch origin
+# git checkout "${BRANCH}"
+git pull
+
+# ── [5/8] Build and start app containers ──────────────────────────────────────
+echo ""
+echo "[5/8] Building containers and starting services..."
+docker compose build --no-cache
+docker compose up -d db realtime app
+
+# ── [6/8] Run DB migrations ────────────────────────────────────────────────────
+echo ""
+echo "[6/8] Running database migrations..."
+docker compose run --rm migrate
+
+# ── [7/8] Configure Nginx (HTTP only) ─────────────────────────────────────────
+echo ""
+echo "[7/8] Configuring Nginx on port 80..."
+run ln -sf "${NGINX_SITE}" "${NGINX_ENABLED}"
+run rm -f /etc/nginx/sites-enabled/<default>
+run rm -f /etc/nginx/sites-enabled/default
+run mkdir -p /var/www/certbot
+
+write_nginx_http_config
+
+run nginx -t
+run systemctl reload nginx
+
+# ── [8/8] Verify final status ─────────────────────────────────────────────────
+echo ""
+echo "[8/8] Verifying services..."
+docker compose ps
+run systemctl status nginx --no-pager | head -n 10
+
+echo ""
+echo "========================================"
+echo "  Deploy สำเร็จ"
+echo "  URL: http://${DOMAIN}"
+echo "  URL aliases: ${SERVER_NAMES}"
+echo "  App container:      http://127.0.0.1:3000"
+echo "  Realtime container: ws://127.0.0.1:3001"
+echo "========================================"
