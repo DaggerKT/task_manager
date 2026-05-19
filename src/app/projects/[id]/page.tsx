@@ -1,4 +1,4 @@
-import KanbanBoard from "./KanbanBoard";
+import KanbanBoard from "@/components/project/KanbanBoard";
 import { getProjectData } from "@/actions/project";
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
@@ -23,6 +23,7 @@ export default async function Page({
 
   const formattedTasks = tasks.map((t) => ({
     id: t.id,
+    taskNo: t.taskNo,
     order: t.order,
     title: t.title,
     status: t.stepId,

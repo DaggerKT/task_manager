@@ -18,6 +18,7 @@ export interface ProjectMemberAvatar {
 /** Project row shown in the projects list */
 export interface ProjectItem {
   id: string;
+  sortOrder: number;
   name: string;
   status: string;
   progress: number;

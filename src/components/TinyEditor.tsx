@@ -17,6 +17,44 @@ export default function TinyEditor({
   newDescription,
   setNewDescription,
 }: Props) {
+  const compressImage = (
+    file: File,
+    maxWidth = 1024,
+    quality = 0.7,
+  ): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          let width = img.width;
+          let height = img.height;
+
+          // คำนวณอัตราส่วนเพื่อย่อขนาดไม่ให้เกิน maxWidth (แต่ยังรักษา Ratio เดิมไว้)
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return reject(new Error("Canvas context is null"));
+
+          ctx.drawImage(img, 0, 0, width, height);
+
+          const compressedBase64 = canvas.toDataURL("image/jpeg", quality);
+          resolve(compressedBase64);
+        };
+        img.onerror = (err) => reject(err);
+      };
+      reader.onerror = (err) => reject(err);
+    });
+  };
   return (
     <TinyMCEEditor
       apiKey={process.env.NEXT_PUBLIC_TINYMCE_API_KEY}
@@ -66,22 +104,35 @@ export default function TinyEditor({
           input.setAttribute("type", "file");
           input.setAttribute("accept", "image/*");
 
-          input.onchange = () => {
+          input.onchange = async () => {
             const file = input.files?.[0];
             if (!file) return;
 
-            const reader = new FileReader();
-            reader.onload = () => {
-              callback(reader.result as string, { title: file.name });
-            };
-            reader.readAsDataURL(file);
+            try {
+              const compressedBase64 = await compressImage(file);
+              callback(compressedBase64, { title: file.name });
+            } catch (error) {
+              console.error("Image compression failed:", error);
+              const reader = new FileReader();
+              reader.onload = () =>
+                callback(reader.result as string, { title: file.name });
+              reader.readAsDataURL(file);
+            }
           };
 
           input.click();
         },
+
         images_upload_handler: async (blobInfo: any) => {
-          const mimeType = blobInfo.blob().type || "image/png";
-          return `data:${mimeType};base64,${blobInfo.base64()}`;
+          try {
+            const file = blobInfo.blob() as File;
+            const compressedBase64 = await compressImage(file);
+            return compressedBase64;
+          } catch (error) {
+            console.error("Upload handler compression failed:", error);
+            const mimeType = blobInfo.blob().type || "image/png";
+            return `data:${mimeType};base64,${blobInfo.base64()}`;
+          }
         },
       }}
     />

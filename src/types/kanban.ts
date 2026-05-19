@@ -83,6 +83,7 @@ export interface BoardComment {
 
 export interface BoardTask {
   id: string;
+  taskNo?: number;
   order?: number;
   status: string;
   type: string;

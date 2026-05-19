@@ -176,7 +176,8 @@
     "selectMultiplePeople": "Select multiple people",
     "andAtLeastOne": " and at least 1",
     "noMatchingUsers": "No users match the search query",
-    "selected": "Selected"
+    "selected": "Selected",
+    "filterByMember": "Filter by member"
   },
   "timeline": {
     "title": "Project Timeline",

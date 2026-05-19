@@ -176,7 +176,8 @@
     "selectMultiplePeople": "เลือกได้หลายคน",
     "andAtLeastOne": "และต้องมีอย่างน้อย 1 คน",
     "noMatchingUsers": "ไม่พบผู้ใช้ที่ตรงกับคำค้นหา",
-    "selected": "เลือกแล้ว"
+    "selected": "เลือกแล้ว",
+    "filterByMember": "กรองตามสมาชิก"
   },
   "timeline": {
     "title": "ไทม์ไลน์โปรเจค",

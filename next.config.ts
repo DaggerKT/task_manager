@@ -42,7 +42,7 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "<your-domain.com>",
+        hostname: "todo.sfcinema.com",
       },
       {
         protocol: "http",

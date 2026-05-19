@@ -100,15 +100,15 @@ mkdir -p logs
 
 ### 3. Configure Nginx
 ```bash
-sudo cp nginx.conf /etc/nginx/sites-available/<your-domain.com>
-sudo ln -s /etc/nginx/sites-available/<your-domain.com> /etc/nginx/sites-enabled/
+sudo cp nginx.conf /etc/nginx/sites-available/todo.sfcinema.com
+sudo ln -s /etc/nginx/sites-available/todo.sfcinema.com /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl restart nginx
 ```
 
 ### 4. Setup SSL Certificate
 ```bash
-sudo certbot certonly --standalone -d <your-domain.com> -d www.<your-domain.com>
+sudo certbot certonly --standalone -d todo.sfcinema.com -d www.todo.sfcinema.com
 sudo systemctl restart nginx
 ```
 
@@ -137,7 +137,7 @@ pm2 logs
 
 ### DNS Configuration
 - [ ] DNS A record points to server IP
-- [ ] Domain resolves correctly: `nslookup <your-domain.com>`
+- [ ] Domain resolves correctly: `nslookup todo.sfcinema.com`
 
 ### Environment Variables
 - [ ] `.env.production` created with actual values
@@ -166,7 +166,7 @@ pm2 logs
 ### Monitoring
 - [ ] PM2 monitoring active: `pm2 monit`
 - [ ] Logs visible: `pm2 logs`
-- [ ] Website accessible: `https://<your-domain.com>`
+- [ ] Website accessible: `https://todo.sfcinema.com`
 
 ---
 
@@ -214,8 +214,8 @@ sudo systemctl restart nginx
 sudo systemctl status nginx
 
 # Logs
-tail -f /var/log/nginx/task_manager_access.log
-tail -f /var/log/nginx/task_manager_error.log
+tail -f /var/log/nginx/todo_sfcinemacity_access.log
+tail -f /var/log/nginx/todo_sfcinemacity_error.log
 ```
 
 ### Database Management
@@ -236,11 +236,11 @@ pnpm exec prisma studio
 ### Deployment
 ```bash
 # One-command deployment
-sudo DOMAIN=<your-domain.com> ./deploy-prod.sh
+sudo DOMAIN=todo.sfcinema.com ./deploy-prod.sh
 
 # Rollback (if needed)
 git revert HEAD
-sudo DOMAIN=<your-domain.com> ./deploy-prod.sh
+sudo DOMAIN=todo.sfcinema.com ./deploy-prod.sh
 ```
 
 ### Docker Disk Protection
@@ -290,7 +290,7 @@ grep DATABASE_URL .env.production
 sudo nginx -t
 
 # Check upstream resolution
-cat /etc/nginx/sites-enabled/<your-domain.com> | grep upstream
+cat /etc/nginx/sites-enabled/todo.sfcinema.com | grep upstream
 ```
 
 ### Issue: SSL certificate not working
@@ -299,7 +299,7 @@ cat /etc/nginx/sites-enabled/<your-domain.com> | grep upstream
 sudo certbot certificates
 
 # Test SSL
-openssl s_client -connect <your-domain.com>:443
+openssl s_client -connect todo.sfcinema.com:443
 
 # Renew certificate
 sudo certbot renew --force-renewal
@@ -318,5 +318,5 @@ sudo certbot renew --force-renewal
 ---
 
 **Last Updated**: May 6, 2026
-**Domain**: <your-domain.com>
+**Domain**: todo.sfcinema.com
 **Environment**: Production

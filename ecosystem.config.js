@@ -45,7 +45,7 @@ module.exports = {
   deploy: {
     production: {
       user: "deploy",
-      host: "<your-domain.com>",
+      host: "todo.sfcinema.com",
       ref: "origin/main",
       repo: "git@github.com:yourorg/sf-project-task.git",
       path: "/home/deploy/apps/todo",

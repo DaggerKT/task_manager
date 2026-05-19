@@ -17,7 +17,7 @@ let transporter: nodemailer.Transporter | null = null;
 function getTransporter() {
   if (transporter) return transporter;
 
-  const mailHost = process.env.MAIL_HOST || "<your-smtp-relay-host>";
+  const mailHost = process.env.MAIL_HOST || "mail.sfcinemacity.com";
   const mailPort = parseInt(process.env.MAIL_PORT || "25", 10);
   const mailTimeout = parseInt(process.env.MAIL_TIMEOUT || "10000", 10);
 
@@ -48,8 +48,7 @@ export async function sendMail(options: MailOptions) {
       : defaultBcc;
 
     const result = await transporter.sendMail({
-      from:
-        options.from || process.env.MAIL_FROM || "noreply@<your-domain.com>",
+      from: options.from || process.env.MAIL_FROM || "noreply@sfcinema.com",
       replyTo: options.replyTo,
       to: options.to,
       cc: options.cc,
@@ -75,7 +74,7 @@ export async function sendInvitationEmail(
   inviteLink: string,
 ) {
   const subject = `${inviterName} ได้เชิญคุณเข้าร่วม Project: ${projectName}`;
-  const fromDisplay = `"${inviterName} Task" <${process.env.MAIL_FROM || "noreply@<your-domain.com>"}>`;
+  const fromDisplay = `"${inviterName} via SF Task" <${process.env.MAIL_FROM || "noreply@sfcinema.com"}>`;
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -101,7 +100,7 @@ export async function sendInvitationEmail(
       <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;" />
       
       <p style="color: #999; font-size: 12px;">
-        นี้คือเมลอัตโนมัติจากระบบ Task Management ของ <your-domain.com><br />
+        นี้คือเมลอัตโนมัติจากระบบ Task Management ของ SF Cinema City<br />
         โปรดอย่าตอบกลับเมลนี้
       </p>
     </div>
@@ -126,7 +125,7 @@ export async function sendTaskAssignmentEmail(
   taskLink: string,
 ) {
   const subject = `${assignerName} ได้มอบหมายงานให้คุณใน Project: ${projectName}`;
-  const fromDisplay = `"${assignerName} Task" <${process.env.MAIL_FROM || "noreply@<your-domain.com>"}>`;
+  const fromDisplay = `"${assignerName} via SF Task" <${process.env.MAIL_FROM || "noreply@sfcinema.com"}>`;
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -145,7 +144,7 @@ export async function sendTaskAssignmentEmail(
       </p> 
       <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;" />
       <p style="color: #999; font-size: 12px;">
-        นี้คือเมลอัตโนมัติจากระบบ Task Management ของ <your-domain.com><br />
+        นี้คือเมลอัตโนมัติจากระบบ Task Management ของ SF Cinema City<br />
         โปรดอย่าตอบกลับเมลนี้
       </p>
     </div>
@@ -173,7 +172,7 @@ export async function sendTaskUpdateEmail(
   taskLink: string,
 ) {
   const subject = `${updaterName} ได้อัพเดตงานของคุณใน Project: ${projectName}`;
-  const fromDisplay = `"${updaterName} Task" <${process.env.MAIL_FROM || "noreply@<your-domain.com>"}>`;
+  const fromDisplay = `"${updaterName} via SF Task" <${process.env.MAIL_FROM || "noreply@sfcinema.com"}>`;
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -194,7 +193,7 @@ export async function sendTaskUpdateEmail(
       </p> 
       <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;" />
       <p style="color: #999; font-size: 12px;">
-        นี้คือเมลอัตโนมัติจากระบบ Task Management ของ <your-domain.com><br />
+        นี้คือเมลอัตโนมัติจากระบบ Task Management ของ SF Cinema City<br />
         โปรดอย่าตอบกลับเมลนี้
       </p>
     </div>

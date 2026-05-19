@@ -1,7 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Badge, Button, Empty, List, Popover, Spin, Typography } from "antd";
+import { useState, useEffect, use } from "react";
+import {
+  Badge,
+  Button,
+  Empty,
+  List,
+  message,
+  Popover,
+  Spin,
+  Typography,
+} from "antd";
 import {
   BellOutlined,
   CloseOutlined,
@@ -13,6 +22,14 @@ import {
   markNotificationAsRead,
 } from "@/lib/notification";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useRouter } from "next/navigation";
+import {
+  getPendingInvitationCount,
+  getMyInvitations,
+  respondToInvitation,
+} from "@/actions/invitation";
+
+type InvitationItem = Awaited<ReturnType<typeof getMyInvitations>>[number];
 
 interface Notification {
   id: string;
@@ -33,11 +50,14 @@ interface Notification {
 }
 
 export default function NotificationBell({ userId }: { userId: string }) {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { t } = useLanguage();
   const [loading, setLoading] = useState(false);
+  const [pendingInvitations, setPendingInvitations] = useState(0);
+  const [invitations, setInvitations] = useState<InvitationItem[]>([]);
 
   const handleMarkAllAsRead = async () => {
     try {
@@ -97,6 +117,48 @@ export default function NotificationBell({ userId }: { userId: string }) {
     };
   }, [userId]);
 
+  useEffect(() => {
+    const loadInvitationCount = async () => {
+      try {
+        const count = await getPendingInvitationCount();
+        setPendingInvitations(count);
+      } catch (err) {
+        console.error("Error fetching invitation count:", err);
+      }
+    };
+
+    void loadInvitationCount();
+
+    const intervalId = window.setInterval(() => {
+      void loadInvitationCount();
+    }, 8000);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void loadInvitationCount();
+      }
+    };
+
+    window.addEventListener("focus", handleVisibilityChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    const loadInvitations = async () => {
+      try {
+        const data = await getMyInvitations();
+        setInvitations(data);
+      } catch (error) {
+        console.error("Error loading invitations:", error);
+      }
+    };
+    void loadInvitations();
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", handleVisibilityChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [pendingInvitations, router, userId]);
+
   const handleMarkAsRead = async (notificationId: string) => {
     try {
       await markNotificationAsRead(notificationId);
@@ -108,7 +170,24 @@ export default function NotificationBell({ userId }: { userId: string }) {
     }
   };
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const handleRespond = async (
+    invitationId: string,
+    decision: "accept" | "decline",
+  ) => {
+    const res = await respondToInvitation(invitationId, decision);
+    if (!res.success) {
+      message.error(res.error || t.notifications.generalError);
+      return;
+    }
+
+    message.success(
+      decision === "accept" ? t.notifications.accept : t.notifications.decline,
+    );
+    setInvitations((prev) => prev.filter((inv) => inv.id !== invitationId));
+  };
+
+  const unreadCount =
+    notifications.filter((n) => !n.read).length + pendingInvitations;
 
   const popoverContent = (
     <div style={{ width: 360 }}>
@@ -143,7 +222,6 @@ export default function NotificationBell({ userId }: { userId: string }) {
           />
         </div>
       </div>
-
       <div style={{ maxHeight: 380, overflowY: "auto" }}>
         {isLoading ? (
           <div style={{ padding: 24, textAlign: "center" }}>
@@ -217,6 +295,77 @@ export default function NotificationBell({ userId }: { userId: string }) {
               </List.Item>
             )}
           />
+        )}
+        <div
+          style={{
+            borderTop: "1px #d0d0d0 dashed",
+            marginBottom: 12,
+          }}
+        ></div>
+        {invitations.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <Typography.Title level={5} style={{ marginBottom: 8 }}>
+              Pending Invitations
+            </Typography.Title>
+            <List
+              dataSource={invitations}
+              split
+              renderItem={(invitation) => (
+                <List.Item
+                  key={invitation.id}
+                  style={{
+                    padding: "12px 8px",
+                    background: "#fffbe6",
+                    borderRadius: 8,
+                  }}
+                  actions={[
+                    <Button
+                      key="accept"
+                      type="link"
+                      onClick={() => handleRespond(invitation.id, "accept")}
+                    >
+                      {t.notifications.accept}
+                    </Button>,
+                    <Button
+                      key="decline"
+                      type="link"
+                      onClick={() => handleRespond(invitation.id, "decline")}
+                    >
+                      {t.notifications.decline}
+                    </Button>,
+                  ]}
+                >
+                  <List.Item.Meta
+                    title={
+                      <Typography.Text
+                        strong
+                        className="text-nowrap overflow-hidden text-ellipsis"
+                      >
+                        {invitation.team?.name}
+                      </Typography.Text>
+                    }
+                    description={
+                      <div className="text-nowrap overflow-hidden text-ellipsis min-w-47.5">
+                        <Typography.Text type="secondary">
+                          {invitation?.inviter?.username}{" "}
+                          {t.notifications.inviteFrom} {invitation?.team?.name}
+                        </Typography.Text>
+                        <br />
+                        <Typography.Text
+                          type="secondary"
+                          style={{ fontSize: 12 }}
+                        >
+                          {new Date(invitation.createdAt).toLocaleTimeString(
+                            "th-TH",
+                          )}
+                        </Typography.Text>
+                      </div>
+                    }
+                  />
+                </List.Item>
+              )}
+            />
+          </div>
         )}
       </div>
     </div>

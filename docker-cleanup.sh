@@ -10,8 +10,8 @@ set -euo pipefail
 echo "[docker-cleanup] Before cleanup"
 docker system df || true
 
-docker image prune -af --filter "until=168h"
-docker builder prune -af --filter "until=168h"
+docker image prune -af
+timeout 30 docker builder prune -af || true
 docker container prune -f
 
 echo ""

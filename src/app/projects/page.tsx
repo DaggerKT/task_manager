@@ -1,6 +1,6 @@
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-import ProjectsList from "./ProjectsList";
+import ProjectsList from "@/components/project/List";
 import { getProjects } from "@/actions/project";
 import type { ProjectMemberAvatar } from "@/types/project";
 
@@ -27,6 +27,7 @@ export default async function Page() {
 
     return {
       id: p.id,
+      sortOrder: p.sortOrder,
       name: p.name,
       status: p.status,
       progress,

@@ -2,17 +2,19 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Avatar,
   Button,
+  Card,
   Empty,
   Input,
   Modal,
-  Select,
   Segmented,
+  Select,
+  Space,
   Statistic,
   Tag,
   Typography,
   message,
-  Card,
 } from "antd";
 import {
   CalendarOutlined,
@@ -34,8 +36,8 @@ import {
 import { addComment } from "@/actions/comment";
 import { Gantt, ViewMode } from "gantt-task-react";
 import "gantt-task-react/dist/index.css";
-import ViewTaskModal from "../components/ViewTaskModal";
 import type { BoardColumn, BoardMember, BoardTask } from "@/types/kanban";
+import ViewTaskModal from "@/components/project/ViewTaskModal";
 
 export default function TimelinePage({
   params,
@@ -60,7 +62,7 @@ export default function TimelinePage({
   const [assigneeFilter, setAssigneeFilter] = useState<string[]>(["all"]);
   const [urgentOnly, setUrgentOnly] = useState(false);
   const [project, setProject] = useState<any>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.Month);
+  const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.Day);
   const [messageApi, contextHolder] = message.useMessage();
   const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -230,8 +232,20 @@ export default function TimelinePage({
           (task.assignees || []).some((assignee) =>
             assigneeFilter.includes(assignee.id),
           );
+        const isAllDoneFilter =
+          statusFilter.includes("all") && !statusFilter.includes("done");
+        const doneStatusIds = columns
+          .filter((col) => col.title.toLowerCase().includes("done"))
+          .map((col) => col.id)
+          .includes(task.status);
         const urgentMatch = !urgentOnly || !!task.isUrgent;
-        return titleMatch && statusMatch && assigneeMatch && urgentMatch;
+        return (
+          titleMatch &&
+          statusMatch &&
+          assigneeMatch &&
+          (!isAllDoneFilter || !doneStatusIds) &&
+          urgentMatch
+        );
       }),
     [boardTasks, searchTerm, statusFilter, assigneeFilter, urgentOnly],
   );
@@ -563,16 +577,13 @@ export default function TimelinePage({
                 value={statusFilter}
                 onChange={(value) => {
                   let selected = Array.isArray(value) ? value : [value];
-
                   if (selected.length === 0) selected = ["all"];
-
                   if (selected.includes("all") && selected.length > 1) {
                     selected =
                       selected[selected.length - 1] === "all"
                         ? ["all"]
                         : selected.filter((v) => v !== "all");
                   }
-
                   setStatusFilter(selected);
                 }}
                 mode="multiple"
@@ -590,26 +601,33 @@ export default function TimelinePage({
                 value={assigneeFilter}
                 onChange={(value) => {
                   let selected = Array.isArray(value) ? value : [value];
-
                   if (selected.length === 0) selected = ["all"];
-
                   if (selected.includes("all") && selected.length > 1) {
                     selected =
                       selected[selected.length - 1] === "all"
                         ? ["all"]
                         : selected.filter((v) => v !== "all");
                   }
-
                   setAssigneeFilter(selected);
                 }}
                 allowClear
                 mode="multiple"
                 className="w-full lg:col-span-3"
                 options={[
-                  { value: "all", label: t.timeline.allAssignees },
+                  {
+                    value: "all",
+                    label: <Space>{t.timeline.allAssignees}</Space>,
+                  },
                   ...members.map((member) => ({
                     value: member.id,
-                    label: member.name,
+                    label: (
+                      <Space>
+                        <Avatar size="small" src={member.avatarUrl}>
+                          {member.name[0]}
+                        </Avatar>
+                        {member.name}
+                      </Space>
+                    ),
                   })),
                 ]}
               />
@@ -646,10 +664,14 @@ export default function TimelinePage({
               </Typography.Text>
             </div>
           ) : ganttTasks.length > 0 ? (
-            <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <div
+              className="overflow-x-auto rounded-xl border border-slate-200"
+              style={{ maxHeight: "calc(100vh - 190px)" }}
+            >
               <Gantt
                 tasks={ganttTasks}
                 viewMode={viewMode}
+                viewDate={new Date(Date.now() - 24 * 60 * 60 * 1000)}
                 locale="en"
                 listCellWidth="150px"
                 rowHeight={36}

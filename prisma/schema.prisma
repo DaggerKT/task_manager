@@ -121,6 +121,7 @@ model Invitation {
 
 model Project {
   id          String    @id @default(uuid())
+  sortOrder   Int       @unique @default(autoincrement()) @map("sort_order")
   name        String
   description String?
   status      String    @default("ACTIVE")
@@ -157,6 +158,7 @@ model Step {
 
 model Task {
   id      String  @id @default(uuid())
+  taskNo  Int     @unique @default(autoincrement()) @map("task_no")
   title   String
   type    String  @default("General")
   content String? @db.Text

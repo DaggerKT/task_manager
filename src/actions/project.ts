@@ -24,7 +24,7 @@ export async function getProjects(): Promise<{
       _count: { select: { tasks: true } };
       tasks: { where: { step: { title: string } } };
     };
-    orderBy: { createdAt: "desc" };
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }];
   }>>>;
   currentUserId: string | null;
 }> {
@@ -64,7 +64,7 @@ export async function getProjects(): Promise<{
           where: { step: { title: "Done" } },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
     });
     return { projects, currentUserId: userId };
   } catch (error) {
@@ -242,6 +242,78 @@ export async function updateProject(
   } catch (error) {
     console.error("Error updating project:", error);
     return { success: false, error: "Failed to update project" };
+  }
+}
+
+export async function updateProjectOrders(
+  updates: Array<{ projectId: string; sortOrder: number }>,
+) {
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return { success: false, error: "Unauthorized. Please login again." };
+    }
+
+    if (!updates.length) {
+      return { success: true };
+    }
+
+    const projectIds = updates.map((item) => item.projectId);
+    const accessibleProjects = await prisma.project.findMany({
+      where: {
+        id: { in: projectIds },
+        team: {
+          members: {
+            some: { userId },
+          },
+        },
+      },
+      select: { id: true },
+    });
+
+    if (accessibleProjects.length !== projectIds.length) {
+      return {
+        success: false,
+        error: "Forbidden. Unable to reorder one or more projects.",
+      };
+    }
+
+    const maxSortOrderResult = await prisma.project.aggregate({
+      _max: { sortOrder: true },
+    });
+    const temporaryOffset =
+      (maxSortOrderResult._max.sortOrder ?? 0) + updates.length + 1;
+
+    await prisma.$transaction(async (tx) => {
+      await Promise.all(
+        updates.map((item) =>
+          tx.project.update({
+            where: { id: item.projectId },
+            data: { sortOrder: item.sortOrder + temporaryOffset },
+          }),
+        ),
+      );
+
+      await Promise.all(
+        updates.map((item) =>
+          tx.project.update({
+            where: { id: item.projectId },
+            data: { sortOrder: item.sortOrder },
+          }),
+        ),
+      );
+    });
+
+    revalidatePath("/projects");
+    await publishRealtimeEvent({
+      type: "project.order.updated",
+      payload: { projectIds },
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating project orders:", error);
+    return { success: false, error: "Failed to update project orders" };
   }
 }
 

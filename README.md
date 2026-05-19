@@ -1,114 +1,36 @@
-# Task Manager
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-ระบบจัดการงาน (Task Management) ที่รองรับการทำงานร่วมกันแบบ Real-time พร้อมมุมมอง Kanban Board และ Gantt Chart Timeline
+## Getting Started
 
-## Features
-
-- **Kanban Board:** จัดการสถานะงานแบบลากวาง (Drag & Drop)
-- **Real-time Collaboration:** อัปเดตข้อมูลทันทีเมื่อมีการเปลี่ยนแปลงผ่าน WebSockets
-- **Gantt Chart Timeline:** วางแผนงานด้วยมุมมอง Timeline (ใช้ `gantt-task-react`)
-- **Rich Text Editor:** เขียนรายละเอียดงานด้วย TinyMCE หรือ Quill Editor พร้อมรองรับการปรับขนาดรูปภาพ
-- **User Management:** ระบบจัดการผู้ได้รับมอบหมาย (Assignees) และคอมเมนต์
-- **Notifications:** ระบบแจ้งเตือนผ่าน Email (Nodemailer)
-
-## Tech Stack
-
-- **Frontend:** [Next.js 16 (App Router)](https://nextjs.org/), [React 19](https://react.dev/), [Ant Design 6](https://ant.design/)
-- **Styling:** [Tailwind CSS 4](https://tailwindcss.com/)
-- **Backend:** Next.js API Routes & Custom Node.js Real-time Server
-- **Database & ORM:** [PostgreSQL](https://www.postgresql.org/) with [Prisma ORM](https://www.prisma.io/)
-- **Communication:** [WS (WebSockets)](https://github.com/websockets/ws) สำหรับระบบ Real-time
-
----
-
-## Installation & Setup
-
-### 1. Clone Project
+First, run the development server:
 
 ```bash
-git clone <your-repository-url>
-cd task_manager
-
-```
-
-### 2. Install Dependencies
-
-```bash
-pnpm install
-
-```
-
-### 3. Environment Variables
-
-สร้างไฟล์ `.env` ที่ Root Project และกำหนดค่าดังนี้:
-
-```env
-DATABASE_URL="postgresql://<user>:<password>@localhost:5432/task_db"
-TINYMCE_API_KEY="your_api_key"
-# กำหนดค่าอื่นๆ เช่น SMTP สำหรับ Nodemailer
-
-```
-
-### 4. Database Setup
-
-รัน Prisma Migration เพื่อสร้าง Schema ใน Database:
-
-```bash
-pnpm prisma migrate dev
-
-```
-
----
-
-## Running the Project
-
-### Development Mode
-
-รันทั้ง Next.js และ Real-time Server พร้อมกัน:
-
-```bash
+npm run dev
+# or
+yarn dev
+# or
 pnpm dev
-
+# or
+bun dev
 ```
 
-### Production Mode
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-Build และ Start ระบบ:
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-```bash
-pnpm build
-pnpm start:server
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-```
+## Learn More
 
----
+To learn more about Next.js, take a look at the following resources:
 
-## 📑 Scripts Reference
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-| Command              | Description                                     |
-| -------------------- | ----------------------------------------------- |
-| `pnpm dev`           | รัน Next.js และ Real-time server (concurrently) |
-| `pnpm build`         | Build โปรเจคสำหรับ Production                   |
-| `pnpm prisma studio` | เปิด GUI สำหรับจัดการข้อมูลใน Database          |
-| `pnpm deploy`        | รันสคริปต์เพื่อ Deploy ไปยัง Production server  |
-| `pnpm lint`          | ตรวจสอบคุณภาพ Code ด้วย ESLint                  |
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
----
+## Deploy on Vercel
 
-## Project Structure (Key Folders)
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-- `/app`: โครงสร้างหน้าเว็บหลัก (App Router)
-- `/prisma`: Database Schema และ Migrations
-- `realtime-server.cjs`: WebSocket Server สำหรับจัดการ Event แบบ Real-time
-- `/components`: Reusable UI Components (Kanban, Gantt, Editors)
-
----
-
-## Notes
-
-- **TinyMCE:** ใช้สำหรับรายละเอียดงาน รองรับการ Resize รูปภาพแบบ Open Source
-- **Real-time:** หากมีการแก้ไขงาน ระบบจะส่งสัญญาณผ่าน `ws` เพื่ออัปเดต UI ของผู้ใช้คนอื่นทันทีโดยไม่ต้อง Refresh หน้าจอ
-
----
-
-**Developed with by DaggerKT**
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
