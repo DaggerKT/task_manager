@@ -112,6 +112,7 @@ export default function ProjectsList({
     if (res.success && res.project) {
       const newProject = {
         id: res.project.id,
+        sortOrder: res.project.sortOrder,
         name: res.project.name,
         status: res.project.status,
         progress: 0,
